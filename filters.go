@@ -4,12 +4,15 @@ import (
 	"fmt"
 	"time"
 
-	sq "github.com/Masterminds/squirrel"
-	"github.com/srikrsna/sqlx"
+	sq "github.com/elgris/sqrl"
+	"github.com/elgris/sqrl/pg"
+	jsoniter "github.com/json-iterator/go"
 )
 
+type Sqlizer = sq.Sqlizer
+
 type Filter interface {
-	ToSql(prefix string) (sq.Sqlizer, error)
+	ToSql(prefix string) (Sqlizer, error)
 }
 
 type And conj
@@ -263,7 +266,29 @@ func (o *ObjectFilter) ToSql(prefix string) (sq.Sqlizer, error) {
 type ArrayFilter []interface{}
 
 func (f ArrayFilter) ToSql(prefix string) (sq.Sqlizer, error) {
-	return sq.Expr(prefix+" @> ?", sqlx.JSONB(f)), nil
+	return sq.Expr(prefix+" @> ?", pg.Array(f)), nil
+}
+
+type ObjectArrayFilter []Marshaler
+
+func (f ObjectArrayFilter) ToSql(prefix string) (sq.Sqlizer, error) {
+	return sq.Expr(prefix+" @> ?", JSONB(f)), nil
+}
+
+func (f ObjectArrayFilter) MarshalDocument(w *jsoniter.Stream) error {
+	w.WriteArrayStart()
+
+	for _, e := range f {
+		e.MarshalDocument(w)
+	}
+
+	w.WriteArrayEnd()
+
+	return w.Error
+}
+
+func (f ObjectArrayFilter) UnmarshalDocument(_ *jsoniter.Iterator) error {
+	return nil
 }
 
 func String(s string) *string {

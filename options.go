@@ -1,6 +1,9 @@
 package nidhi
 
 type CreateOptions struct {
+	Metadata                Metadata
+	ReplaceIfExists         bool
+	ReplaceMetadataIfExists bool
 }
 
 type CreateOption func(*CreateOptions)
@@ -13,6 +16,9 @@ func WithCreateOptions(o CreateOptions) CreateOption {
 
 type DeleteOptions struct {
 	Permanent bool
+
+	Metadata        Metadata
+	ReplaceMetadata bool
 }
 
 type DeleteOption func(*DeleteOptions)
@@ -34,8 +40,33 @@ func WithQueryOptions(o QueryOptions) QueryOption {
 	}
 }
 
+type GetOptions struct {
+	LoadMetadata Metadata
+}
+
+type GetOption func(*GetOptions)
+
+func WithGetOptions(o GetOptions) GetOption {
+	return func(opt *GetOptions) {
+		*opt = o
+	}
+}
+
+type CountOptions struct {
+}
+
+type CountOption func(*CountOptions)
+
+func WithCountOptions(o CountOptions) CountOption {
+	return func(opt *CountOptions) {
+		*opt = o
+	}
+}
+
 type ReplaceOptions struct {
-	Revision int64
+	Revision        int64
+	Metadata        Metadata
+	ReplaceMetadata bool
 }
 
 type ReplaceOption func(*ReplaceOptions)

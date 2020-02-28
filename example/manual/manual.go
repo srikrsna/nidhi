@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"errors"
 
-	sq "github.com/Masterminds/squirrel"
 	jsoniter "github.com/json-iterator/go"
 
 	"github.com/srikrsna/nidhi"
@@ -171,7 +170,7 @@ type BookFilter struct {
 	Pages     []*Page
 }
 
-func (f *BookFilter) ToSql(prefix string) (sq.Sqlizer, error) {
+func (f *BookFilter) ToSql(prefix string) (nidhi.Sqlizer, error) {
 	of := &nidhi.ObjectFilter{}
 	of.Or = f.Or
 	var fp, op string
@@ -181,7 +180,7 @@ func (f *BookFilter) ToSql(prefix string) (sq.Sqlizer, error) {
 		_, _ = fp, op
 	}
 
-	pages := make(nidhi.ArrayFilter, 0, len(f.Pages))
+	pages := make(nidhi.ObjectArrayFilter, 0, len(f.Pages))
 	for _, e := range f.Pages {
 		pages = append(pages, e)
 	}
@@ -201,7 +200,7 @@ type AuthorFilter struct {
 	Name, Bio *nidhi.StringFilter
 }
 
-func (f *AuthorFilter) ToSql(prefix string) (sq.Sqlizer, error) {
+func (f *AuthorFilter) ToSql(prefix string) (nidhi.Sqlizer, error) {
 	of := &nidhi.ObjectFilter{}
 	of.Or = f.Or
 	var fp, op string
@@ -222,7 +221,7 @@ type BookCollection struct {
 }
 
 func OpenBookCollection(ctx context.Context, db *sql.DB) (*BookCollection, error) {
-	col, err := nidhi.OpenCollection(ctx, db, "books_v1", "books", "bk")
+	col, err := nidhi.OpenCollection(ctx, db, "books_v1", "books")
 	if err != nil {
 		return nil, err
 	}
@@ -252,4 +251,13 @@ func (bs *BookCollection) ReplaceBook(ctx context.Context, b *Book, ops ...nidhi
 
 func (bs *BookCollection) DeleteBook(ctx context.Context, id string, ops ...nidhi.DeleteOption) error {
 	return bs.col.Delete(ctx, id, ops)
+}
+
+func (bs *BookCollection) CountBooks(ctx context.Context, f nidhi.Filter, ops ...nidhi.CountOption) (int64, error) {
+	return bs.col.Count(ctx, f, ops)
+}
+
+func (bs *BookCollection) GetBook(ctx context.Context, id string, ops ...nidhi.GetOption) (*Book, error) {
+	var entity Book
+	return &entity, bs.col.Get(ctx, id, &entity, ops)
 }
