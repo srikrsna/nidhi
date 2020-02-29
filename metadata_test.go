@@ -10,6 +10,15 @@ import (
 	"github.com/srikrsna/nidhi"
 )
 
+func init() {
+	f := func() nidhi.MetadataValue {
+		return &testDoc{}
+	}
+	nidhi.RegisterMetadataValueFactory("a", f)
+	nidhi.RegisterMetadataValueFactory("b", f)
+	nidhi.RegisterMetadataValueFactory("one", f)
+}
+
 func TestMetadata_MarshalDocument(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -103,9 +112,6 @@ func TestMetadata_UnmarshalDocument(t *testing.T) {
 			act := nidhi.Metadata{}
 			if tt.md == nil {
 				act = nil
-			}
-			for k := range tt.md {
-				act[k] = &testDoc{}
 			}
 			if err := act.UnmarshalDocument(iter); (err != nil) != tt.wantErr {
 				t.Errorf("Metadata.UnmarshalDocument() error = %v, wantErr %v", err, tt.wantErr)
