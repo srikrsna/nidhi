@@ -25,14 +25,24 @@ func (doc *Book) MarshalDocument(w *jsoniter.Stream) error {
 		return w.Error
 	}
 
+	first := true
+
 	w.WriteObjectStart()
-	nidhi.WriteString(w, "id", doc.Id)
-	nidhi.WriteString(w, "title", doc.Title)
-	nidhi.WriteInt(w, "pageCount", doc.PageCount)
+	first = WriteString(w, "id", doc.Id, first)
+	first = WriteString(w, "title", doc.Title, first)
+	if doc.Author != nil {
+		first = WriteMarshaler(w, "author", doc.Author, first)
+	}
+	first = WriteInt(w, "pageCount", doc.PageCount, first)
 	if len(doc.Pages) > 0 {
+		if !first {
+			w.WriteMore()
+		}
 		w.WriteObjectField("pages")
 		w.WriteArrayStart()
-		for _, e := range doc.Pages {
+		doc.Pages[0].MarshalDocument(w)
+		for _, e := range doc.Pages[1:] {
+			w.WriteMore()
 			w.Error = e.MarshalDocument(w)
 		}
 		w.WriteArrayEnd()
@@ -93,9 +103,10 @@ func (doc *Author) MarshalDocument(w *jsoniter.Stream) error {
 		return w.Error
 	}
 
+	first := true
 	w.WriteObjectStart()
-	nidhi.WriteString(w, "name", doc.Name)
-	nidhi.WriteString(w, "bio", doc.Bio)
+	first = WriteString(w, "name", doc.Name, first)
+	WriteString(w, "bio", doc.Bio, first)
 	w.WriteObjectEnd()
 
 	return w.Error
@@ -147,15 +158,15 @@ func (doc *Page) UnmarshalDocument(r *jsoniter.Iterator) error {
 }
 
 func (p *Page) MarshalDocument(w *jsoniter.Stream) error {
+	if p == nil {
+		w.WriteNil()
+		return w.Error
+	}
+
+	first := true
 	w.WriteObjectStart()
-	if p.Number != 0 {
-		w.WriteObjectField("number")
-		w.WriteInt(p.Number)
-	}
-	if p.Content != "" {
-		w.WriteObjectField("content")
-		w.WriteString(p.Content)
-	}
+	first = WriteInt(w, "number", p.Number, first)
+	WriteString(w, "content", p.Content, first)
 	w.WriteObjectEnd()
 
 	return w.Error
@@ -260,4 +271,119 @@ func (bs *BookCollection) CountBooks(ctx context.Context, f nidhi.Filter, ops ..
 func (bs *BookCollection) GetBook(ctx context.Context, id string, ops ...nidhi.GetOption) (*Book, error) {
 	var entity Book
 	return &entity, bs.col.Get(ctx, id, &entity, ops)
+}
+
+func WriteString(w *jsoniter.Stream, field, value string, first bool) bool {
+	if value == "" {
+		return first
+	}
+
+	if !first {
+		w.WriteMore()
+	}
+
+	w.WriteObjectField(field)
+	w.WriteString(value)
+
+	return false
+}
+
+func WriteBool(w *jsoniter.Stream, field string, value, first bool) bool {
+	if !value {
+		return first
+	}
+
+	if !first {
+		w.WriteMore()
+	}
+
+	w.WriteObjectField(field)
+	w.WriteBool(value)
+
+	return false
+}
+
+func WriteInt(w *jsoniter.Stream, field string, value int, first bool) bool {
+	if value == 0 {
+		return false
+	}
+
+	if !first {
+		w.WriteMore()
+	}
+
+	w.WriteObjectField(field)
+	w.WriteInt(value)
+
+	return false
+}
+
+func WriteFloat32(w *jsoniter.Stream, field string, value float32, first bool) bool {
+	if value == 0 {
+		return first
+	}
+
+	if !first {
+		w.WriteMore()
+	}
+
+	w.WriteObjectField(field)
+	w.WriteFloat32(value)
+
+	return false
+}
+
+func WriteFloat64(w *jsoniter.Stream, field string, value float64, first bool) bool {
+	if value == 0 {
+		return first
+	}
+
+	if !first {
+		w.WriteMore()
+	}
+
+	w.WriteObjectField(field)
+	w.WriteFloat64(value)
+
+	return false
+}
+
+func WriteInt32(w *jsoniter.Stream, field string, value int32, first bool) bool {
+	if value == 0 {
+		return first
+	}
+
+	if !first {
+		w.WriteMore()
+	}
+	w.WriteObjectField(field)
+	w.WriteInt32(value)
+
+	return false
+}
+
+func WriteInt64(w *jsoniter.Stream, field string, value int64, first bool) bool {
+	if value == 0 {
+		return first
+	}
+
+	if !first {
+		w.WriteMore()
+	}
+
+	w.WriteObjectField(field)
+	w.WriteInt64(value)
+
+	return false
+}
+
+func WriteMarshaler(w *jsoniter.Stream, field string, value nidhi.Marshaler, first bool) bool {
+	if !first {
+		w.WriteMore()
+	}
+
+	w.WriteObjectField(field)
+	value.MarshalDocument(w)
+
+	return false
 }

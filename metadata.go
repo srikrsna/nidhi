@@ -12,25 +12,15 @@ type Metadata map[string]interface {
 	Unmarshaler
 }
 
-func (m Metadata) Set(k string, v interface {
-	Marshaler
-	Unmarshaler
-}) {
-	m[k] = v
-}
-
-func (m Metadata) Get(k string) interface {
-	Marshaler
-	Unmarshaler
-} {
-	return m[k]
-}
-
 func (md Metadata) MarshalDocument(w *jsoniter.Stream) error {
 	w.WriteObjectStart()
+	l := len(md)
 	for k, v := range md {
 		w.WriteObjectField(k)
 		v.MarshalDocument(w)
+		if l--; l > 0 {
+			w.WriteMore()
+		}
 	}
 	w.WriteObjectEnd()
 
@@ -43,9 +33,11 @@ func (md Metadata) UnmarshalDocument(r *jsoniter.Iterator) error {
 	}
 
 	r.ReadObjectCB(func(r *jsoniter.Iterator, field string) bool {
-		v := md[field]
-		if v != nil {
+		v, ok := md[field]
+		if ok {
 			v.UnmarshalDocument(r)
+		} else {
+			r.Skip()
 		}
 		return true
 	})
