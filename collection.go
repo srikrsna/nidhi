@@ -13,7 +13,7 @@ const (
 	idCol   = "id"
 	delCol  = "deleted"
 	docCol  = "document"
-	revCol  = "revision"
+	revCol  = `"revision"`
 	metaCol = "metadata"
 )
 
@@ -23,6 +23,9 @@ type Collection struct {
 }
 
 func OpenCollection(ctx context.Context, db *sql.DB, schema, name string) (*Collection, error) {
+	if _, err := db.ExecContext(ctx, `CREATE SCHEMA IF NOT EXISTS `+schema); err != nil {
+		return nil, fmt.Errorf("nidhi: unable to open collection: %s, err: %w", name, err)
+	}
 	const query = `CREATE TABLE IF NOT EXISTS %s.%s (id TEXT NOT NULL PRIMARY KEY, revision bigint NOT NULL, deleted BOOLEAN NOT NULL DEFAULT false, document JSONB NOT NULL, metadata JSONB NOT NULL DEFAULT '{}')`
 	if _, err := db.ExecContext(ctx, fmt.Sprintf(query, schema, name)); err != nil {
 		return nil, fmt.Errorf("nidhi: unable to open collection: %s, err: %w", name, err)
@@ -51,11 +54,11 @@ func (c *Collection) Create(ctx context.Context, doc Document, ops []CreateOptio
 
 	query := `INSERT INTO ` + c.table + ` (id, revision, document, metadata) VALUES ($1, 1, $2, $3)`
 	if cop.ReplaceIfExists {
-		query += ` ON CONFLICT(id) SET revision = revision + 1, document = $2, metadata = `
+		query += ` ON CONFLICT(id) DO UPDATE SET revision = ` + c.table + `.revision + 1, document = $2, metadata = `
 		if cop.ReplaceMetadataIfExists {
 			query += `$3`
 		} else {
-			query += `metadata || $3`
+			query += c.table + `.metadata || $3`
 		}
 	}
 
@@ -140,6 +143,55 @@ func (c *Collection) Delete(ctx context.Context, id string, ops []DeleteOption) 
 	return nil
 }
 
+func (c *Collection) DeleteMany(ctx context.Context, f Filter, ops []DeleteOption) error {
+	var dop DeleteOptions
+	for _, op := range ops {
+		op(&dop)
+	}
+
+	var (
+		sql  string
+		args []interface{}
+		err  error
+	)
+	if dop.Permanent {
+		st := sq.Delete(c.table)
+		if f != nil {
+			cond, err := f.ToSql(docCol)
+			if err != nil {
+				return fmt.Errorf("nidhi: invalid filter received for collection: %s, err: %w", c.table, err)
+			}
+
+			st = st.Where(cond)
+		}
+		sql, args, err = st.PlaceholderFormat(sq.Dollar).ToSql()
+		if err != nil {
+			return fmt.Errorf("nidhi: there seems to be a bug: unable to build delete statement: %w", err)
+		}
+	} else {
+		st := sq.Update(c.table).Set(delCol, true)
+		if f != nil {
+			cond, err := f.ToSql(docCol)
+			if err != nil {
+				return fmt.Errorf("nidhi: invalid filter received for collection: %s, err: %w", c.table, err)
+			}
+
+			st = st.Where(cond)
+		}
+		st = updateMetadata(st, dop.Metadata, dop.ReplaceMetadata)
+		sql, args, err = st.PlaceholderFormat(sq.Dollar).ToSql()
+		if err != nil {
+			return fmt.Errorf("nidhi: there seems to be a bug: unable to build delete statement: %w", err)
+		}
+	}
+
+	if _, err := c.db.ExecContext(ctx, sql, args...); err != nil {
+		return fmt.Errorf("nidhi: unable to delete a document of collection: %s, err: %w", c.table, err)
+	}
+
+	return nil
+}
+
 func (c *Collection) Query(ctx context.Context, f Filter, ctr func() Document, ops []QueryOption) error {
 	var qop QueryOptions
 	for _, op := range ops {
@@ -194,7 +246,7 @@ func (c *Collection) Get(ctx context.Context, id string, doc Document, ops []Get
 
 	scans := make([]interface{}, 0, 2)
 
-	st := sq.Select(docCol).From(c.table).Limit(1)
+	st := sq.Select(docCol).From(c.table).Where(sq.Eq{idCol: id, delCol: false}).Limit(1)
 
 	entity := []byte{}
 	scans = append(scans, &entity)

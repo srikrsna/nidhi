@@ -86,6 +86,10 @@ type StringFilter struct {
 }
 
 func (s *StringFilter) ToSql(name string) (sq.Sqlizer, error) {
+	if s == nil {
+		return nil, nil
+	}
+
 	if s.Eq != nil {
 		return sq.Eq{name: *s.Eq}, nil
 	}
@@ -239,11 +243,11 @@ func (o *ObjectFilter) ToSql(prefix string) (sq.Sqlizer, error) {
 	conj := make([]sq.Sqlizer, 0, len(o.Filter))
 
 	for k, f := range o.Filter {
-		if f != nil {
-			cond, err := f.ToSql(k)
-			if err != nil {
-				return nil, err
-			}
+		cond, err := f.ToSql(k)
+		if err != nil {
+			return nil, err
+		}
+		if cond != nil {
 			conj = append(conj, cond)
 		}
 	}

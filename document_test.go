@@ -3,47 +3,11 @@ package nidhi_test
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"reflect"
 	"testing"
 
-	jsoniter "github.com/json-iterator/go"
 	"github.com/srikrsna/nidhi"
 )
-
-type testDoc struct {
-	Id string `json:"Id,omitempty"`
-}
-
-func (doc *testDoc) MarshalDocument(w *jsoniter.Stream) error {
-	if doc == nil {
-		w.WriteNil()
-		return w.Error
-	}
-	w.WriteObjectStart()
-	if doc.Id != "" {
-		w.WriteObjectField("Id")
-		w.WriteString(doc.Id)
-	}
-	w.WriteObjectEnd()
-	return w.Error
-}
-
-func (doc *testDoc) UnmarshalDocument(r *jsoniter.Iterator) error {
-	if doc == nil {
-		return errors.New("nil document passed for unmarshal")
-	}
-	r.ReadObjectCB(func(r *jsoniter.Iterator, field string) bool {
-		switch field {
-		case "Id":
-			doc.Id = r.ReadString()
-		default:
-			r.Skip()
-		}
-		return true
-	})
-	return r.Error
-}
 
 func Test_jsonb_Scan(t *testing.T) {
 	must := func(d []byte, err error) []byte {
