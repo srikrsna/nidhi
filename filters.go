@@ -105,6 +105,10 @@ type BoolFilter struct {
 }
 
 func (s *BoolFilter) ToSql(name string) (sq.Sqlizer, error) {
+	if s == nil {
+		return nil, nil
+	}
+
 	if s.Eq != nil {
 		return sq.Eq{name: *s.Eq}, nil
 	}
@@ -119,6 +123,10 @@ type FloatFilter struct {
 }
 
 func (i *FloatFilter) ToSql(name string) (sq.Sqlizer, error) {
+	if i == nil {
+		return nil, nil
+	}
+
 	var and sq.And
 	if i.Eq != nil {
 		and = append(and, sq.Eq{
@@ -160,6 +168,10 @@ type IntFilter struct {
 }
 
 func (i *IntFilter) ToSql(name string) (sq.Sqlizer, error) {
+	if i == nil {
+		return nil, nil
+	}
+
 	var and sq.And
 	if i.Eq != nil {
 		and = append(and, sq.Eq{
@@ -201,6 +213,10 @@ type TimeFilter struct {
 }
 
 func (t *TimeFilter) ToSql(name string) (sq.Sqlizer, error) {
+	if t == nil {
+		return nil, nil
+	}
+
 	var and sq.And
 	if t.Eq != nil {
 		and = append(and, sq.Eq{name: time.Unix(*t.Eq, 0)})
