@@ -25,7 +25,7 @@ type Collection struct {
 	table string
 	db    *sql.DB
 
-	uf SubjectFunc
+	subFunc SubjectFunc
 }
 
 func OpenCollection(ctx context.Context, db *sql.DB, schema, name string) (*Collection, error) {
@@ -301,8 +301,8 @@ func (c *Collection) Count(ctx context.Context, f Filter, ops []CountOption) (in
 
 func (c *Collection) activityLog(ctx context.Context) *ActivityLog {
 	sub := ""
-	if c.uf != nil {
-		sub = c.uf(ctx)
+	if c.subFunc != nil {
+		sub = c.subFunc(ctx)
 	}
 	return &ActivityLog{
 		By: sub,
@@ -314,5 +314,5 @@ func merge(column string, value interface {
 	Marshaler
 	Unmarshaler
 }) sq.Sqlizer {
-	return sq.Expr(column+" || "+" ? ", JSONB(value))
+	return sq.Expr(column+" || ? ", JSONB(value))
 }
