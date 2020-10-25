@@ -1,9 +1,8 @@
 package nidhi
 
 type CreateOptions struct {
-	Metadata                Metadata
-	ReplaceIfExists         bool
-	ReplaceMetadataIfExists bool
+	// Replace will replace the document if it exists otherwise it will throw an error.
+	Replace bool
 }
 
 type CreateOption func(*CreateOptions)
@@ -16,9 +15,6 @@ func WithCreateOptions(o CreateOptions) CreateOption {
 
 type DeleteOptions struct {
 	Permanent bool
-
-	Metadata        Metadata
-	ReplaceMetadata bool
 }
 
 type DeleteOption func(*DeleteOptions)
@@ -30,6 +26,7 @@ func WithDeleteOptions(o DeleteOptions) DeleteOption {
 }
 
 type QueryOptions struct {
+	PaginationOptions *PaginationOptions
 }
 
 type QueryOption func(*QueryOptions)
@@ -40,8 +37,16 @@ func WithQueryOptions(o QueryOptions) QueryOption {
 	}
 }
 
+type PaginationOptions struct {
+	Backward bool
+	Cursor   string
+	Limit    int
+
+	// Will be set by Nidhi
+	HasMore bool
+}
+
 type GetOptions struct {
-	LoadMetadata Metadata
 }
 
 type GetOption func(*GetOptions)
@@ -64,9 +69,7 @@ func WithCountOptions(o CountOptions) CountOption {
 }
 
 type ReplaceOptions struct {
-	Revision        int64
-	Metadata        Metadata
-	ReplaceMetadata bool
+	Revision int64
 }
 
 type ReplaceOption func(*ReplaceOptions)

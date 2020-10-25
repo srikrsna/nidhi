@@ -5,121 +5,60 @@ import (
 	"encoding/json"
 	"reflect"
 	"testing"
+	"time"
 
+	"github.com/google/uuid"
 	jsoniter "github.com/json-iterator/go"
 	"github.com/srikrsna/nidhi"
 )
 
-func init() {
-	f := func() nidhi.MetadataValue {
-		return &testDoc{}
+func TestActivityLog_MarshalDocument(t *testing.T) {
+	log := &nidhi.ActivityLog{
+		On: time.Now(),
+		By: uuid.New().String(),
 	}
-	nidhi.RegisterMetadataValueFactory("a", f)
-	nidhi.RegisterMetadataValueFactory("b", f)
-	nidhi.RegisterMetadataValueFactory("one", f)
-}
 
-func TestMetadata_MarshalDocument(t *testing.T) {
-	tests := []struct {
-		name    string
-		md      nidhi.Metadata
-		wantErr bool
-	}{
-		{
-			"One Field",
-			nidhi.Metadata{
-				"one": &testDoc{Id: "id"},
-			},
-			false,
-		},
-		{
-			"Two Fields",
-			nidhi.Metadata{
-				"a": &testDoc{Id: "id"},
-				"b": &testDoc{Id: "id"},
-			},
-			false,
-		},
-		{
-			"Nil",
-			nil,
-			false,
-		},
+	exp, _ := json.Marshal(log)
+
+	w := jsoniter.ConfigDefault.BorrowStream(nil)
+	defer jsoniter.ConfigDefault.ReturnStream(w)
+
+	if err := log.MarshalDocument(w); err != nil {
+		t.Error(err)
+		return
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			stream := jsoniter.ConfigDefault.BorrowStream(nil)
-			defer jsoniter.ConfigDefault.ReturnStream(stream)
 
-			if err := tt.md.MarshalDocument(stream); (err != nil) != tt.wantErr {
-				t.Errorf("Metadata.MarshalDocument() error = %v, wantErr %v", err, tt.wantErr)
-			}
-
-			exp, err := json.Marshal(tt.md)
-			if err != nil {
-				panic(err)
-			}
-			if tt.md == nil {
-				exp = []byte("{}")
-			}
-
-			act := stream.Buffer()
-
-			if !tt.wantErr && !bytes.Equal(exp, act) {
-				t.Errorf("Metadata.MarshalDocument() exp: %s, act: %s", exp, act)
-			}
-		})
+	if !bytes.Equal(exp, w.Buffer()) {
+		t.Errorf("output mismatch, exp: %s, act: %s", exp, w.Buffer())
 	}
 }
 
-func TestMetadata_UnmarshalDocument(t *testing.T) {
-	tests := []struct {
-		name    string
-		md      nidhi.Metadata
-		wantErr bool
-	}{
-		{
-			"One Field",
-			nidhi.Metadata{
-				"one": &testDoc{Id: "id"},
-			},
-			false,
-		},
-		{
-			"Two Fields",
-			nidhi.Metadata{
-				"a": &testDoc{Id: "id"},
-				"b": &testDoc{Id: "id"},
-			},
-			false,
-		},
-		{
-			"Nil",
-			nil,
-			true,
-		},
+func TestActivityLog_UnmarshalDocument(t *testing.T) {
+
+	buf, _ := json.Marshal(&nidhi.ActivityLog{
+		On: time.Now(),
+		By: uuid.New().String(),
+	})
+
+	var (
+		exp nidhi.ActivityLog
+		act nidhi.ActivityLog
+	)
+
+	if err := json.Unmarshal(buf, &exp); err != nil {
+		t.Fatalf("error in json: %v", err)
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			data, err := json.Marshal(tt.md)
-			if err != nil {
-				panic(err)
-			}
 
-			iter := jsoniter.ConfigDefault.BorrowIterator(data)
-			defer jsoniter.ConfigDefault.ReturnIterator(iter)
+	r := jsoniter.ConfigDefault.BorrowIterator(buf)
+	defer jsoniter.ConfigDefault.ReturnIterator(r)
 
-			act := nidhi.Metadata{}
-			if tt.md == nil {
-				act = nil
-			}
-			if err := act.UnmarshalDocument(iter); (err != nil) != tt.wantErr {
-				t.Errorf("Metadata.UnmarshalDocument() error = %v, wantErr %v", err, tt.wantErr)
-			}
+	if err := act.UnmarshalDocument(r); err != nil {
+		t.Fatal(err)
+		return
+	}
 
-			if !tt.wantErr && !reflect.DeepEqual(act, tt.md) {
-				t.Errorf("Metadata.UnmarshalDocument() exp: %v, act: %v", tt.md, act)
-			}
-		})
+	if !reflect.DeepEqual(exp, act) {
+		t.Fatalf("output mismatch, exp: %v, act: %v", exp, act)
 	}
 }
+

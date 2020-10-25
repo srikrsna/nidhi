@@ -20,11 +20,11 @@ var _ = Describe("Collection", func() {
 	)
 	BeforeSuite(func() {
 		var err error
-		db, err = postgres.Open(ctx, "postgres://krsna@localhost/test?sslmode=disable")
+		db, err = postgres.Open(ctx, "postgres://krsna@localhost/postgres?sslmode=disable")
 		Expect(db, err).NotTo(BeNil())
 		Expect(db.Ping()).To(Succeed())
 		Expect(db.Exec(`TRUNCATE collection_test.test_docs;`)).ToNot(BeNil())
-		col, err = nidhi.OpenCollection(ctx, db, "collection_test", "test_docs")
+		col, err = nidhi.OpenCollection(ctx, db, "collection_test", "test_doc")
 		Expect(col, err).NotTo(BeNil())
 	})
 
@@ -61,7 +61,7 @@ var _ = Describe("Collection", func() {
 			It("should replace if replace is passed", func() {
 				exp := doc
 				exp.Number = doc.Number + 1
-				Expect(col.Create(ctx, &exp, []nidhi.CreateOption{nidhi.WithCreateOptions(nidhi.CreateOptions{ReplaceIfExists: true})})).To(Equal(doc.Id))
+				Expect(col.Create(ctx, &exp, []nidhi.CreateOption{nidhi.WithCreateOptions(nidhi.CreateOptions{Replace: true})})).To(Equal(doc.Id))
 				var act testDoc
 				Expect(col.Get(ctx, exp.Id, &act, nil)).To(Succeed())
 				Expect(act).To(Equal(exp))

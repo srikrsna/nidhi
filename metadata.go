@@ -1,46 +1,115 @@
 package nidhi
 
 import (
+	"context"
 	"errors"
+	"time"
 
-	sq "github.com/elgris/sqrl"
 	jsoniter "github.com/json-iterator/go"
 )
 
-type MetadataValue interface {
-	Marshaler
-	Unmarshaler
+type Metadata struct {
+	Created, Updated, Deleted *ActivityLog
 }
 
-type Metadata map[string]MetadataValue
+type ActivityLog struct {
+	By string    `json:"by"`
+	On time.Time `json:"on"`
+}
 
-func (md Metadata) MarshalDocument(w *jsoniter.Stream) error {
-	w.WriteObjectStart()
-	l := len(md)
-	for k, v := range md {
-		w.WriteObjectField(k)
-		v.MarshalDocument(w)
-		if l--; l > 0 {
-			w.WriteMore()
-		}
+func (log *ActivityLog) MarshalDocument(w *jsoniter.Stream) error {
+	if log == nil {
+		w.WriteNil()
+		return w.Error
 	}
+
+	w.WriteObjectStart()
+
+	w.WriteObjectField("by")
+	w.WriteString(log.By)
+
+	w.WriteMore()
+
+	w.WriteObjectField("on")
+	w.WriteString(log.On.Format(time.RFC3339Nano))
+
 	w.WriteObjectEnd()
 
 	return w.Error
 }
 
-func (md Metadata) UnmarshalDocument(r *jsoniter.Iterator) error {
-	if md == nil {
-		return errors.New("nidhi: emtpy metdata cannot be unmarshalled")
+func (log *ActivityLog) UnmarshalDocument(r *jsoniter.Iterator) error {
+	if log == nil {
+		return errors.New("empty object passed")
 	}
 
 	r.ReadObjectCB(func(r *jsoniter.Iterator, field string) bool {
-		vf, ok := factories[field]
-		if ok {
-			v := vf()
-			v.UnmarshalDocument(r)
-			md[field] = v
-		} else {
+		switch field {
+		case "by":
+			log.By = r.ReadString()
+		case "on":
+			log.On, _ = time.Parse(time.RFC3339, r.ReadString())
+		default:
+			r.Skip()
+		}
+
+		return true
+	})
+
+	return r.Error
+}
+
+func (doc *Metadata) MarshalDocument(w *jsoniter.Stream) error {
+	if doc == nil {
+		w.WriteNil()
+		return w.Error
+	}
+
+	w.WriteObjectStart()
+
+	if doc.Created != nil {
+		w.WriteObjectField("created")
+		doc.Created.MarshalDocument(w)
+	}
+
+	if doc.Updated != nil {
+		if doc.Created != nil {
+			w.WriteMore()
+		}
+		w.WriteObjectField("updated")
+		doc.Updated.MarshalDocument(w)
+	}
+
+	if doc.Deleted != nil {
+		if doc.Created != nil || doc.Updated != nil {
+			w.WriteMore()
+		}
+		w.WriteObjectField("deleted")
+		doc.Deleted.MarshalDocument(w)
+	}
+
+	w.WriteObjectEnd()
+
+	return w.Error
+}
+
+func (doc *Metadata) UnmarshalDocument(r *jsoniter.Iterator) error {
+	if doc == nil {
+		return errors.New("empty object passed")
+	}
+
+	r.ReadObjectCB(func(r *jsoniter.Iterator, field string) bool {
+		switch field {
+		case "created":
+			doc.Created = &ActivityLog{}
+			doc.Created.UnmarshalDocument(r)
+		case "updated":
+			doc.Updated = &ActivityLog{}
+			doc.Updated.UnmarshalDocument(r)
+		case "deleted":
+			doc.Deleted = &ActivityLog{}
+			doc.Deleted.UnmarshalDocument(r)
+		default:
 			r.Skip()
 		}
 		return true
@@ -49,26 +118,4 @@ func (md Metadata) UnmarshalDocument(r *jsoniter.Iterator) error {
 	return r.Error
 }
 
-func updateMetadata(st *sq.UpdateBuilder, md Metadata, replace bool) *sq.UpdateBuilder {
-	if md == nil {
-		return st
-	}
-
-	if replace {
-		return st.Set(metaCol, JSONB(md))
-	}
-
-	return st.Set(metaCol, sq.Expr(metaCol+" || "+"?", JSONB(md)))
-}
-
-type MetadataValueFactory func() MetadataValue
-
-var factories = map[string]MetadataValueFactory{}
-
-func RegisterMetadataValueFactory(key string, f MetadataValueFactory) {
-	if _, ok := factories[key]; ok {
-		panic("already registered Metadata factory with the same name")
-	}
-
-	factories[key] = f
-}
+type SubjectFunc func(context.Context) string

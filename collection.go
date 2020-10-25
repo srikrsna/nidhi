@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"time"
 
 	sq "github.com/elgris/sqrl"
 	jsoniter "github.com/json-iterator/go"
@@ -11,22 +12,27 @@ import (
 
 const (
 	idCol   = "id"
-	delCol  = "deleted"
 	docCol  = "document"
 	revCol  = `"revision"`
 	metaCol = "metadata"
+
+	notDeleted = "NOT (metadata ?? 'deleted')"
 )
+
+// TODO: Add Pagination
 
 type Collection struct {
 	table string
 	db    *sql.DB
+
+	uf SubjectFunc
 }
 
 func OpenCollection(ctx context.Context, db *sql.DB, schema, name string) (*Collection, error) {
 	if _, err := db.ExecContext(ctx, `CREATE SCHEMA IF NOT EXISTS `+schema); err != nil {
 		return nil, fmt.Errorf("nidhi: unable to open collection: %s, err: %w", name, err)
 	}
-	const query = `CREATE TABLE IF NOT EXISTS %s.%s (id TEXT NOT NULL PRIMARY KEY, revision bigint NOT NULL, deleted BOOLEAN NOT NULL DEFAULT false, document JSONB NOT NULL, metadata JSONB NOT NULL DEFAULT '{}')`
+	const query = `CREATE TABLE IF NOT EXISTS %s.%s (id TEXT NOT NULL PRIMARY KEY, revision bigint NOT NULL, document JSONB NOT NULL, metadata JSONB NOT NULL DEFAULT '{}')`
 	if _, err := db.ExecContext(ctx, fmt.Sprintf(query, schema, name)); err != nil {
 		return nil, fmt.Errorf("nidhi: unable to open collection: %s, err: %w", name, err)
 	}
@@ -51,22 +57,23 @@ func (c *Collection) Create(ctx context.Context, doc Document, ops []CreateOptio
 	if err := doc.MarshalDocument(stream); err != nil {
 		return "", fmt.Errorf("nidhi: unable to marshal document of collection: %s, err: %w", c.table, err)
 	}
+	al := c.activityLog(ctx)
+
+	args := []interface{}{
+		id,
+		stream.Buffer(),
+		JSONB(&Metadata{Created: al}),
+	}
 
 	query := `INSERT INTO ` + c.table + ` (id, revision, document, metadata) VALUES ($1, 1, $2, $3)`
-	if cop.ReplaceIfExists {
-		query += ` ON CONFLICT(id) DO UPDATE SET revision = ` + c.table + `.revision + 1, document = $2, metadata = `
-		if cop.ReplaceMetadataIfExists {
-			query += `$3`
-		} else {
-			query += c.table + `.metadata || $3`
-		}
+	if cop.Replace {
+		query += ` ON CONFLICT(id) DO UPDATE SET revision = ` + c.table + `.revision + 1, document = $2, metadata = ` + c.table + `.metadata || $4`
+		args = append(args, JSONB(&Metadata{Updated: al}))
 	}
 
 	if _, err := c.db.ExecContext(ctx,
 		query,
-		id,
-		stream.Buffer(),
-		JSONB(cop.Metadata),
+		args...,
 	); err != nil {
 		return "", fmt.Errorf("nidhi: unable to create a new document: %w", err)
 	}
@@ -89,15 +96,14 @@ func (c *Collection) Replace(ctx context.Context, doc Document, ops []ReplaceOpt
 
 	stmt := sq.Update(c.table).
 		Set(docCol, stream.Buffer()).
-		Set(revCol, sq.Expr(revCol+"+ 1 "))
-
-	stmt = updateMetadata(stmt, rop.Metadata, rop.ReplaceMetadata)
+		Set(revCol, sq.Expr(revCol+" + 1 ")).
+		Set(metaCol, sq.Expr(metaCol+" || "+" ? ", JSONB(&Metadata{Updated: c.activityLog(ctx)})))
 
 	if rop.Revision > 0 {
 		stmt = stmt.Where(sq.Eq{revCol: rop.Revision})
 	}
 
-	stmt = stmt.Where(sq.Eq{idCol: doc.DocumentId(), "deleted": false})
+	stmt = stmt.Where(sq.Eq{idCol: doc.DocumentId()}).Where(notDeleted)
 
 	rc, err := sq.RowsAffected(stmt.PlaceholderFormat(sq.Dollar).RunWith(c.db).ExecContext(ctx))
 	if err != nil {
@@ -128,8 +134,11 @@ func (c *Collection) Delete(ctx context.Context, id string, ops []DeleteOption) 
 			return fmt.Errorf("nidhi: there seems to be a bug: unable to build delete statement: %w", err)
 		}
 	} else {
-		st := sq.Update(c.table).Where(sq.Eq{idCol: id}).Set(delCol, true)
-		st = updateMetadata(st, dop.Metadata, dop.ReplaceMetadata)
+		st := sq.Update(c.table).
+			Where(sq.Eq{idCol: id}).
+			Where(notDeleted).
+			Set(metaCol, merge(metaCol, &Metadata{Deleted: c.activityLog(ctx)}))
+
 		sql, args, err = st.PlaceholderFormat(sq.Dollar).ToSql()
 		if err != nil {
 			return fmt.Errorf("nidhi: there seems to be a bug: unable to build delete statement: %w", err)
@@ -169,16 +178,15 @@ func (c *Collection) DeleteMany(ctx context.Context, f Filter, ops []DeleteOptio
 			return fmt.Errorf("nidhi: there seems to be a bug: unable to build delete statement: %w", err)
 		}
 	} else {
-		st := sq.Update(c.table).Set(delCol, true)
+		st := sq.Update(c.table).Set(metaCol, merge(metaCol, &Metadata{Deleted: c.activityLog(ctx)}))
 		if f != nil {
 			cond, err := f.ToSql(docCol)
 			if err != nil {
 				return fmt.Errorf("nidhi: invalid filter received for collection: %s, err: %w", c.table, err)
 			}
 
-			st = st.Where(cond)
+			st = st.Where(cond).Where(notDeleted)
 		}
-		st = updateMetadata(st, dop.Metadata, dop.ReplaceMetadata)
 		sql, args, err = st.PlaceholderFormat(sq.Dollar).ToSql()
 		if err != nil {
 			return fmt.Errorf("nidhi: there seems to be a bug: unable to build delete statement: %w", err)
@@ -206,7 +214,7 @@ func (c *Collection) Query(ctx context.Context, f Filter, ctr func() Document, o
 			return fmt.Errorf("nidhi: invalid filter received for collection: %s, err: %w", c.table, err)
 		}
 
-		st = st.Where(cond)
+		st = st.Where(cond).Where(notDeleted)
 	}
 
 	rows, err := st.PlaceholderFormat(sq.Dollar).RunWith(c.db).QueryContext(ctx)
@@ -246,15 +254,10 @@ func (c *Collection) Get(ctx context.Context, id string, doc Document, ops []Get
 
 	scans := make([]interface{}, 0, 2)
 
-	st := sq.Select(docCol).From(c.table).Where(sq.Eq{idCol: id, delCol: false}).Limit(1)
+	st := sq.Select(docCol).From(c.table).Where(sq.Eq{idCol: id}).Where(notDeleted)
 
 	entity := []byte{}
 	scans = append(scans, &entity)
-
-	if gop.LoadMetadata != nil {
-		st = sq.Select(metaCol)
-		scans = append(scans, JSONB(gop.LoadMetadata))
-	}
 
 	if err := st.PlaceholderFormat(sq.Dollar).RunWith(c.db).QueryRowContext(ctx).Scan(scans...); err != nil {
 		return fmt.Errorf("nidhi: unable to get a document from collection %q, err: %w", c.table, err)
@@ -294,4 +297,22 @@ func (c *Collection) Count(ctx context.Context, f Filter, ops []CountOption) (in
 	}
 
 	return count, nil
+}
+
+func (c *Collection) activityLog(ctx context.Context) *ActivityLog {
+	sub := ""
+	if c.uf != nil {
+		sub = c.uf(ctx)
+	}
+	return &ActivityLog{
+		By: sub,
+		On: time.Now(),
+	}
+}
+
+func merge(column string, value interface {
+	Marshaler
+	Unmarshaler
+}) sq.Sqlizer {
+	return sq.Expr(column+" || "+" ? ", JSONB(value))
 }

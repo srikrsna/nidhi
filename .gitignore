@@ -17,3 +17,6 @@
 # IDE preferences
 .vscode/
 .idea/
+
+# Mac Temp Files
+**/*.DS_Store
