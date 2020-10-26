@@ -1,5 +1,11 @@
 package nidhi
 
+type CollectionOptions struct {
+	SubjectFunc SubjectFunc
+
+	Fields []string
+}
+
 type CreateOptions struct {
 	// Replace will replace the document if it exists otherwise it will throw an error.
 	Replace bool
@@ -27,6 +33,7 @@ func WithDeleteOptions(o DeleteOptions) DeleteOption {
 
 type QueryOptions struct {
 	PaginationOptions *PaginationOptions
+	ViewMask          []string
 }
 
 type QueryOption func(*QueryOptions)
@@ -47,6 +54,7 @@ type PaginationOptions struct {
 }
 
 type GetOptions struct {
+	ViewMask []string
 }
 
 type GetOption func(*GetOptions)

@@ -24,7 +24,9 @@ var _ = Describe("Collection", func() {
 		Expect(db, err).NotTo(BeNil())
 		Expect(db.Ping()).To(Succeed())
 		Expect(db.Exec(`TRUNCATE collection_test.test_docs;`)).ToNot(BeNil())
-		col, err = nidhi.OpenCollection(ctx, db, "collection_test", "test_doc")
+		col, err = nidhi.OpenCollection(ctx, db, "collection_test", "test_doc", nidhi.CollectionOptions{
+			Fields: []string{"Id", "Number"},
+		})
 		Expect(col, err).NotTo(BeNil())
 	})
 
@@ -44,6 +46,14 @@ var _ = Describe("Collection", func() {
 			var act testDoc
 			Expect(col.Get(ctx, doc.Id, &act, nil)).To(Succeed())
 			Expect(act).To(Equal(doc))
+		})
+
+		It("should get a partial document by it's id", func() {
+			var act testDoc
+			Expect(col.Get(ctx, doc.Id, &act, []nidhi.GetOption{nidhi.WithGetOptions(nidhi.GetOptions{ViewMask: []string{"Number"}})})).To(Succeed())
+			exp := doc
+			exp.Id = ""
+			Expect(act).To(Equal(exp))
 		})
 
 		It("should delete a document by its id", func() {
@@ -113,6 +123,27 @@ var _ = Describe("Collection", func() {
 					return &doc
 				},
 				nil,
+			)).To(Succeed())
+			Expect(act).To(Equal(exp))
+		})
+
+		It("returns results with a partial view based on a query", func() {
+			exp := aboveMarker
+			for i := range exp {
+				exp[i].Id = ""
+			}
+			act := make([]*testDoc, 0, len(docs))
+			Expect(col.Query(
+				ctx,
+				&testFilter{
+					Number: &nidhi.IntFilter{Gt: nidhi.Int64(int64(marker))},
+				},
+				func() nidhi.Document {
+					var doc testDoc
+					act = append(act, &doc)
+					return &doc
+				},
+				[]nidhi.QueryOption{nidhi.WithQueryOptions(nidhi.QueryOptions{ViewMask: []string{"Number"}})},
 			)).To(Succeed())
 			Expect(act).To(Equal(exp))
 		})

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	sq "github.com/elgris/sqrl"
+	"github.com/elgris/sqrl/pg"
 	jsoniter "github.com/json-iterator/go"
 )
 
@@ -20,15 +21,19 @@ const (
 )
 
 // TODO: Add Pagination
+// TODO: Parent
+// TODO: Generation
+// TODO: Partial Update
 
 type Collection struct {
 	table string
 	db    *sql.DB
 
 	subFunc SubjectFunc
+	fields  []string
 }
 
-func OpenCollection(ctx context.Context, db *sql.DB, schema, name string) (*Collection, error) {
+func OpenCollection(ctx context.Context, db *sql.DB, schema, name string, opts CollectionOptions) (*Collection, error) {
 	if _, err := db.ExecContext(ctx, `CREATE SCHEMA IF NOT EXISTS `+schema); err != nil {
 		return nil, fmt.Errorf("nidhi: unable to open collection: %s, err: %w", name, err)
 	}
@@ -37,7 +42,7 @@ func OpenCollection(ctx context.Context, db *sql.DB, schema, name string) (*Coll
 		return nil, fmt.Errorf("nidhi: unable to open collection: %s, err: %w", name, err)
 	}
 
-	return &Collection{table: schema + "." + name, db: db}, nil
+	return &Collection{table: schema + "." + name, db: db, subFunc: opts.SubjectFunc, fields: opts.Fields}, nil
 }
 
 func (c *Collection) Create(ctx context.Context, doc Document, ops []CreateOption) (string, error) {
@@ -206,7 +211,11 @@ func (c *Collection) Query(ctx context.Context, f Filter, ctr func() Document, o
 		op(&qop)
 	}
 
-	st := sq.Select(docCol).From(c.table)
+	var selection interface{} = docCol
+	if len(c.fields) > 0 && len(qop.ViewMask) > 0 {
+		selection = sq.Expr(docCol+" - ?::text[]", pg.Array(difference(c.fields, qop.ViewMask)))
+	}
+	st := sq.Select().Column(selection).From(c.table)
 
 	if f != nil {
 		cond, err := f.ToSql(docCol)
@@ -252,21 +261,21 @@ func (c *Collection) Get(ctx context.Context, id string, doc Document, ops []Get
 		op(&gop)
 	}
 
-	scans := make([]interface{}, 0, 2)
+	var selection interface{} = docCol
+	if len(c.fields) > 0 && len(gop.ViewMask) > 0 {
+		selection = sq.Expr(docCol+" - ?::text[]", pg.Array(difference(c.fields, gop.ViewMask)))
+	}
 
-	st := sq.Select(docCol).From(c.table).Where(sq.Eq{idCol: id}).Where(notDeleted)
+	st := sq.Select().Column(selection).From(c.table).Where(sq.Eq{idCol: id}).Where(notDeleted)
 
-	entity := []byte{}
-	scans = append(scans, &entity)
-
-	if err := st.PlaceholderFormat(sq.Dollar).RunWith(c.db).QueryRowContext(ctx).Scan(scans...); err != nil {
+	var entity []byte
+	if err := st.PlaceholderFormat(sq.Dollar).RunWith(c.db).QueryRowContext(ctx).Scan(&entity); err != nil {
 		return fmt.Errorf("nidhi: unable to get a document from collection %q, err: %w", c.table, err)
 	}
 
-	iter := jsoniter.ConfigDefault.BorrowIterator(nil)
+	iter := jsoniter.ConfigDefault.BorrowIterator(entity)
 	defer jsoniter.ConfigDefault.ReturnIterator(iter)
 
-	iter.ResetBytes(entity)
 	if err := doc.UnmarshalDocument(iter); err != nil {
 		return fmt.Errorf("nidhi: unable to unmarshal document of type %s, err: %w", c.table, err)
 	}
@@ -315,4 +324,32 @@ func merge(column string, value interface {
 	Unmarshaler
 }) sq.Sqlizer {
 	return sq.Expr(column+" || ? ", JSONB(value))
+}
+
+func difference(slice1 []string, slice2 []string) []string {
+	var diff []string
+
+	// Loop two times, first to find slice1 strings not in slice2,
+	// second loop to find slice2 strings not in slice1
+	for i := 0; i < 2; i++ {
+		for _, s1 := range slice1 {
+			found := false
+			for _, s2 := range slice2 {
+				if s1 == s2 {
+					found = true
+					break
+				}
+			}
+			// String not found. We add it to return slice
+			if !found {
+				diff = append(diff, s1)
+			}
+		}
+		// Swap the slices, only if it was the first loop
+		if i == 0 {
+			slice1, slice2 = slice2, slice1
+		}
+	}
+
+	return diff
 }
