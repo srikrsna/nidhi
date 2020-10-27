@@ -20,12 +20,6 @@ const (
 	notDeleted = "NOT (metadata ?? 'deleted')"
 )
 
-// TODO: Parent and Id autogenerate
-// TODO: Generation
-// TODO: Add Custum OrderBy Pagination
-// TODO: Transaction Support
-// TODO: Aggregate Functions
-
 type collection struct {
 	table string
 	tx    sq.BaseRunner
