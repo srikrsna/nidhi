@@ -35,10 +35,15 @@ func (c *Collection) BeginTx(ctx context.Context, opt *sql.TxOptions) (*TxCollec
 	return &TxCollection{&nc, tx}, nil
 }
 
-func (c *Collection) WithTransaction(tcol *TxCollection) *TxCollection {
+func (c *Collection) WithTransaction(tcol *TxToken) *TxCollection {
 	nc := *c.collection
-	nc.tx = tcol.collection.tx
-	return &TxCollection{&nc, tcol}
+	nc.tx = tcol.tx.collection.tx
+	return &TxCollection{&nc, tcol.tx}
+}
+
+type TxCollection struct {
+	*collection
+	rollBackComitter
 }
 
 type rollBackComitter interface {
@@ -46,7 +51,10 @@ type rollBackComitter interface {
 	Commit() error
 }
 
-type TxCollection struct {
-	*collection
-	rollBackComitter
+type TxToken struct {
+	tx *TxCollection
+}
+
+func NewTxToken(tx *TxCollection) *TxToken {
+	return &TxToken{tx}
 }

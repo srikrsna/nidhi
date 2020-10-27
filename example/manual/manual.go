@@ -10,6 +10,17 @@ import (
 	"github.com/srikrsna/nidhi"
 )
 
+type nidhiCol interface {
+	Create(ctx context.Context, doc nidhi.Document, ops []nidhi.CreateOption) (string, error)
+	Replace(ctx context.Context, doc nidhi.Document, ops []nidhi.ReplaceOption) error
+	Update(ctx context.Context, doc nidhi.Document, f nidhi.Filter, ops []nidhi.UpdateOption) error
+	Delete(ctx context.Context, id string, ops []nidhi.DeleteOption) error
+	DeleteMany(ctx context.Context, f nidhi.Filter, ops []nidhi.DeleteOption) error
+	Query(ctx context.Context, f nidhi.Filter, ctr func() nidhi.Document, ops []nidhi.QueryOption) error
+	Get(ctx context.Context, id string, doc nidhi.Document, ops []nidhi.GetOption) error
+	Count(ctx context.Context, f nidhi.Filter, ops []nidhi.CountOption) (int64, error)
+}
+
 type Book struct {
 	Id    string `json:"id,omitempty"`
 	Title string `json:"title,omitempty"`
@@ -228,7 +239,9 @@ func (f *AuthorFilter) ToSql(prefix string) (nidhi.Sqlizer, error) {
 }
 
 type BookCollection struct {
-	col *nidhi.Collection
+	*bookCollection
+
+	ogCol *nidhi.Collection
 }
 
 func OpenBookCollection(ctx context.Context, db *sql.DB) (*BookCollection, error) {
@@ -239,15 +252,51 @@ func OpenBookCollection(ctx context.Context, db *sql.DB) (*BookCollection, error
 		return nil, err
 	}
 	return &BookCollection{
-		col: col,
+		&bookCollection{col: col},
+		col,
 	}, nil
 }
 
-func (bs *BookCollection) CreateBook(ctx context.Context, b *Book, ops ...nidhi.CreateOption) (string, error) {
+func (bs *BookCollection) BeginTx(ctx context.Context, opt *sql.TxOptions) (*BookTxCollection, error) {
+	txCol, err := bs.ogCol.BeginTx(ctx, opt)
+	if err != nil {
+		return nil, err
+	}
+
+	return &BookTxCollection{&bookCollection{txCol}, txCol}, nil
+}
+
+func (bs *BookCollection) WithTransaction(tx *nidhi.TxToken) *BookTxCollection {
+	txCol := bs.ogCol.WithTransaction(tx)
+	return &BookTxCollection{&bookCollection{txCol}, txCol}
+}
+
+type BookTxCollection struct {
+	*bookCollection
+	txCol *nidhi.TxCollection
+}
+
+func (tx *BookTxCollection) Rollback() error {
+	return tx.txCol.Rollback()
+}
+
+func (tx *BookTxCollection) Commit() error {
+	return tx.txCol.Commit()
+}
+
+func (tx *BookTxCollection) TxToken() *nidhi.TxToken {
+	return nidhi.NewTxToken(tx.txCol)
+}
+
+type bookCollection struct {
+	col nidhiCol
+}
+
+func (bs *bookCollection) CreateBook(ctx context.Context, b *Book, ops ...nidhi.CreateOption) (string, error) {
 	return bs.col.Create(ctx, b, ops)
 }
 
-func (bs *BookCollection) QueryBooks(ctx context.Context, f nidhi.Filter, ops ...nidhi.QueryOption) ([]*Book, error) {
+func (bs *bookCollection) QueryBooks(ctx context.Context, f nidhi.Filter, ops ...nidhi.QueryOption) ([]*Book, error) {
 	var ee []*Book
 	ctr := func() nidhi.Document {
 		var e Book
@@ -258,21 +307,25 @@ func (bs *BookCollection) QueryBooks(ctx context.Context, f nidhi.Filter, ops ..
 	return ee, bs.col.Query(ctx, f, ctr, ops)
 }
 
-func (bs *BookCollection) ReplaceBook(ctx context.Context, b *Book, ops ...nidhi.ReplaceOption) error {
+func (bs *bookCollection) ReplaceBook(ctx context.Context, b *Book, ops ...nidhi.ReplaceOption) error {
 	return bs.col.Replace(ctx, b, ops)
 }
 
-func (bs *BookCollection) DeleteBook(ctx context.Context, id string, ops ...nidhi.DeleteOption) error {
+func (bs *bookCollection) DeleteBook(ctx context.Context, id string, ops ...nidhi.DeleteOption) error {
 	return bs.col.Delete(ctx, id, ops)
 }
 
-func (bs *BookCollection) CountBooks(ctx context.Context, f nidhi.Filter, ops ...nidhi.CountOption) (int64, error) {
+func (bs *bookCollection) CountBooks(ctx context.Context, f nidhi.Filter, ops ...nidhi.CountOption) (int64, error) {
 	return bs.col.Count(ctx, f, ops)
 }
 
-func (bs *BookCollection) GetBook(ctx context.Context, id string, ops ...nidhi.GetOption) (*Book, error) {
+func (bs *bookCollection) GetBook(ctx context.Context, id string, ops ...nidhi.GetOption) (*Book, error) {
 	var entity Book
 	return &entity, bs.col.Get(ctx, id, &entity, ops)
+}
+
+func (bs *bookCollection) UpdateBooks(ctx context.Context, b *Book, f nidhi.Filter, ops ...nidhi.UpdateOption) error {
+	return bs.col.Update(ctx, b, f, ops)
 }
 
 func WriteString(w *jsoniter.Stream, field, value string, first bool) bool {
