@@ -14,6 +14,7 @@ type Document interface {
 	Unmarshaler
 
 	DocumentId() string
+	SetDocumentId(id string)
 }
 
 type Marshaler interface {

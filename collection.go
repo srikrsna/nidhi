@@ -22,7 +22,6 @@ const (
 
 // TODO: Parent
 // TODO: Generation
-// TODO: Partial Update
 // TODO: Add Custum OrderBy Pagination
 // TODO: Transaction Support
 // TODO: Aggregate Functions
@@ -101,11 +100,7 @@ func (c *Collection) Replace(ctx context.Context, doc Document, ops []ReplaceOpt
 		return fmt.Errorf("nidhi: unable to marshal document of collection: %s, err: %w", c.table, err)
 	}
 
-	stmt := sq.Update(c.table).
-		Set(docCol, stream.Buffer()).
-		Set(revCol, sq.Expr(revCol+" + 1 ")).
-		Set(metaCol, sq.Expr(metaCol+" || "+" ? ", JSONB(&Metadata{Updated: c.activityLog(ctx)})))
-
+	stmt := c.updateStatement(ctx, stream.Buffer(), false)
 	if rop.Revision > 0 {
 		stmt = stmt.Where(sq.Eq{revCol: rop.Revision})
 	}
@@ -119,6 +114,40 @@ func (c *Collection) Replace(ctx context.Context, doc Document, ops []ReplaceOpt
 
 	if rc != 1 {
 		return fmt.Errorf("nidhi: no document matched with the given id and revision")
+	}
+
+	return nil
+}
+
+func (c *Collection) Update(ctx context.Context, doc Document, f Filter, ops []UpdateOption) error {
+	var uop UpdateOptions
+	for _, op := range ops {
+		op(&uop)
+	}
+
+	stream := jsoniter.ConfigDefault.BorrowStream(nil)
+	defer jsoniter.ConfigDefault.ReturnStream(stream)
+
+	doc.SetDocumentId("")
+	if err := doc.MarshalDocument(stream); err != nil {
+		return fmt.Errorf("nidhi: unable to marshal document of collection: %s, err: %w", c.table, err)
+	}
+
+	st := c.updateStatement(ctx, stream.Buffer(), true)
+
+	if f != nil {
+		cond, err := f.ToSql(docCol)
+		if err != nil {
+			return fmt.Errorf("nidhi: invalid filter received for collection: %s, err: %w", c.table, err)
+		}
+
+		st = st.Where(cond)
+	}
+
+	st = st.Where(notDeleted)
+
+	if _, err := st.PlaceholderFormat(sq.Dollar).RunWith(c.db).ExecContext(ctx); err != nil {
+		return fmt.Errorf("nidhi: unable to update documents for collection: %s, err: %w", c.table, err)
 	}
 
 	return nil
@@ -241,6 +270,7 @@ func (c *Collection) Query(ctx context.Context, f Filter, ctr func() Document, o
 			st = st.OrderBy(idCol + ` ASC`)
 		}
 
+		qop.PaginationOptions.HasMore = false
 		st = st.Limit(qop.PaginationOptions.Limit + 1)
 	}
 
@@ -344,6 +374,20 @@ func (c *Collection) activityLog(ctx context.Context) *ActivityLog {
 		By: sub,
 		On: time.Now(),
 	}
+}
+
+func (c *Collection) updateStatement(ctx context.Context, buf []byte, merge bool) *sq.UpdateBuilder {
+	st := sq.Update(c.table).
+		Set(revCol, sq.Expr(revCol+" + 1 ")).
+		Set(metaCol, sq.Expr(metaCol+" || ? ", JSONB(&Metadata{Updated: c.activityLog(ctx)})))
+
+	if merge {
+		st = st.Set(docCol, sq.Expr(docCol+" || ? ", buf))
+	} else {
+		st = st.Set(docCol, buf)
+	}
+
+	return st
 }
 
 func merge(column string, value interface {

@@ -32,6 +32,10 @@ func (doc *testDoc) DocumentId() string {
 	return doc.Id
 }
 
+func (doc *testDoc) SetDocumentId(id string) {
+	doc.Id = id
+}
+
 func (doc *testDoc) MarshalDocument(w *jsoniter.Stream) error {
 	if doc == nil {
 		w.WriteNil()

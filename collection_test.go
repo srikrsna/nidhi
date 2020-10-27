@@ -206,6 +206,40 @@ var _ = Describe("Collection", func() {
 			})
 		})
 
+		It("update based on query", func() {
+			Expect(col.Update(
+				ctx,
+				&testDoc{
+					Number: -1,
+				},
+				&testFilter{
+					Number: &nidhi.IntFilter{Gt: nidhi.Int64(int64(marker))},
+				},
+				nil,
+			)).To(Succeed())
+
+			var act []*testDoc
+			Expect(col.Query(
+				ctx,
+				&testFilter{
+					Number: &nidhi.IntFilter{Eq: nidhi.Int64(-1)},
+				},
+				func() nidhi.Document {
+					var doc testDoc
+					act = append(act, &doc)
+					return &doc
+				},
+				nil,
+			)).To(Succeed())
+
+			exp := aboveMarker
+			for _, e := range exp {
+				e.Number = -1
+			}
+
+			Expect(act).To(Equal(exp))
+		})
+
 		It("count documents based on a query", func() {
 			Expect(col.Count(ctx, &testFilter{
 				Number: &nidhi.IntFilter{Gt: nidhi.Int64(int64(marker))},

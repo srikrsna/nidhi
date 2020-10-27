@@ -105,3 +105,14 @@ func WithReplaceOptions(o ReplaceOptions) ReplaceOption {
 		*opt = o
 	}
 }
+
+type UpdateOptions struct {
+}
+
+type UpdateOption func(*UpdateOptions)
+
+func WithUpdateOptions(o UpdateOptions) UpdateOption {
+	return func(uo *UpdateOptions) {
+		*uo = o
+	}
+}
