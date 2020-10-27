@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"math/rand"
+	"sort"
 
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo"
@@ -109,10 +110,9 @@ var _ = Describe("Collection", func() {
 			}
 		})
 
-		It("returns results based on a query", func() {
-			exp := aboveMarker
-			act := make([]*testDoc, 0, len(docs))
-			Expect(col.Query(
+		qf := func(opts ...nidhi.QueryOption) ([]*testDoc, error) {
+			var act []*testDoc
+			return act, col.Query(
 				ctx,
 				&testFilter{
 					Number: &nidhi.IntFilter{Gt: nidhi.Int64(int64(marker))},
@@ -122,8 +122,14 @@ var _ = Describe("Collection", func() {
 					act = append(act, &doc)
 					return &doc
 				},
-				nil,
-			)).To(Succeed())
+				opts,
+			)
+		}
+
+		It("returns results based on a query", func() {
+			exp := aboveMarker
+			act, err := qf()
+			Expect(err).To(BeNil())
 			Expect(act).To(Equal(exp))
 		})
 
@@ -132,20 +138,72 @@ var _ = Describe("Collection", func() {
 			for i := range exp {
 				exp[i].Id = ""
 			}
-			act := make([]*testDoc, 0, len(docs))
-			Expect(col.Query(
-				ctx,
-				&testFilter{
-					Number: &nidhi.IntFilter{Gt: nidhi.Int64(int64(marker))},
-				},
-				func() nidhi.Document {
-					var doc testDoc
-					act = append(act, &doc)
-					return &doc
-				},
-				[]nidhi.QueryOption{nidhi.WithQueryOptions(nidhi.QueryOptions{ViewMask: []string{"Number"}})},
-			)).To(Succeed())
+			act, err := qf(nidhi.WithQueryOptions(nidhi.QueryOptions{ViewMask: []string{"Number"}}))
+			Expect(err).To(BeNil())
 			Expect(act).To(Equal(exp))
+		})
+
+		Context("Pagination", func() {
+
+			It("has more", func() {
+				sort.Sort(byId(aboveMarker))
+				exp := aboveMarker[:len(aboveMarker)-2]
+				po := &nidhi.PaginationOptions{}
+				po.Limit = uint64(len(exp))
+				po.Cursor = ""
+				act, err := qf(nidhi.WithQueryOptions(nidhi.QueryOptions{PaginationOptions: po}))
+				Expect(err).To(BeNil())
+				Expect(act).To(Equal(exp))
+				Expect(po.HasMore).To(BeTrue())
+			})
+
+			pf := func(backward bool) {
+				cursor := ""
+				var act []*testDoc
+				for {
+					po := &nidhi.PaginationOptions{
+						Backward: backward,
+						Limit:    1,
+						Cursor:   cursor,
+					}
+					pr, err := qf(nidhi.WithPaginationOptions(po))
+					Expect(err).To(BeNil())
+					Expect(len(pr)).To(Equal(1))
+					act = append(act, pr...)
+
+					cursor = pr[0].Id
+
+					if !po.HasMore {
+						break
+					}
+				}
+
+				if backward {
+					sort.Sort(sort.Reverse(byId(aboveMarker)))
+				} else {
+					sort.Sort(byId(aboveMarker))
+				}
+
+				Expect(act).To(Equal(aboveMarker))
+			}
+
+			It("Should Paginate forward", func() {
+				pf(false)
+			})
+
+			It("Should Paginate backward", func() {
+				pf(true)
+			})
+
+			It("Does not have more", func() {
+				po := &nidhi.PaginationOptions{}
+				exp := aboveMarker
+				po.Limit = uint64(len(exp))
+				po.Cursor = ""
+				_, err := qf(nidhi.WithQueryOptions(nidhi.QueryOptions{PaginationOptions: po}))
+				Expect(err).To(BeNil())
+				Expect(po.HasMore).To(BeFalse())
+			})
 		})
 
 		It("count documents based on a query", func() {

@@ -20,10 +20,12 @@ const (
 	notDeleted = "NOT (metadata ?? 'deleted')"
 )
 
-// TODO: Add Pagination
 // TODO: Parent
 // TODO: Generation
 // TODO: Partial Update
+// TODO: Add Custum OrderBy Pagination
+// TODO: Transaction Support
+// TODO: Aggregate Functions
 
 type Collection struct {
 	table string
@@ -226,6 +228,22 @@ func (c *Collection) Query(ctx context.Context, f Filter, ctr func() Document, o
 		st = st.Where(cond).Where(notDeleted)
 	}
 
+	if qop.PaginationOptions != nil {
+		if qop.PaginationOptions.Backward {
+			if qop.PaginationOptions.Cursor != "" {
+				st = st.Where(idCol+" < ?", qop.PaginationOptions.Cursor)
+			}
+			st = st.OrderBy(idCol + ` DESC`)
+		} else {
+			if qop.PaginationOptions.Cursor != "" {
+				st = st.Where(idCol+" > ?", qop.PaginationOptions.Cursor)
+			}
+			st = st.OrderBy(idCol + ` ASC`)
+		}
+
+		st = st.Limit(qop.PaginationOptions.Limit + 1)
+	}
+
 	rows, err := st.PlaceholderFormat(sq.Dollar).RunWith(c.db).QueryContext(ctx)
 	if err != nil {
 		return fmt.Errorf("nidhi: unable to query collection: %s, err: %w", c.table, err)
@@ -235,8 +253,17 @@ func (c *Collection) Query(ctx context.Context, f Filter, ctr func() Document, o
 	iter := jsoniter.ConfigDefault.BorrowIterator(nil)
 	defer jsoniter.ConfigDefault.ReturnIterator(iter)
 
-	var entity = sql.RawBytes{}
+	var (
+		count  uint64
+		entity sql.RawBytes
+	)
 	for rows.Next() {
+		if qop.PaginationOptions != nil && qop.PaginationOptions.Limit <= count {
+			qop.PaginationOptions.HasMore = true
+			break
+		}
+
+		count++
 		doc := ctr()
 		if err := rows.Scan(&entity); err != nil {
 			return fmt.Errorf("nidhi: unexpected error while querying collection: %s, err: %w", c.table, err)

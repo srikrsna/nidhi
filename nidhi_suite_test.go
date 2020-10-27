@@ -16,6 +16,13 @@ func TestNidhi(t *testing.T) {
 	RunSpecs(t, "Nidhi Suite")
 }
 
+type byId []*testDoc
+
+// Len is the number of elements in the collection.
+func (a byId) Len() int           { return len(a) }
+func (a byId) Less(i, j int) bool { return a[i].Id < a[j].Id }
+func (a byId) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+
 type testDoc struct {
 	Id     string `json:"Id,omitempty"`
 	Number int    `json:"Number,omitempty"`

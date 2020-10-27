@@ -232,7 +232,9 @@ type BookCollection struct {
 }
 
 func OpenBookCollection(ctx context.Context, db *sql.DB) (*BookCollection, error) {
-	col, err := nidhi.OpenCollection(ctx, db, "books_v1", "books")
+	col, err := nidhi.OpenCollection(ctx, db, "books_v1", "books", nidhi.CollectionOptions{
+		Fields: []string{"id", "title", "author", "pageCount", "pages"},
+	})
 	if err != nil {
 		return nil, err
 	}

@@ -44,10 +44,22 @@ func WithQueryOptions(o QueryOptions) QueryOption {
 	}
 }
 
+func WithQueryViewMask(vm []string) QueryOption {
+	return func(qo *QueryOptions) {
+		qo.ViewMask = vm
+	}
+}
+
+func WithPaginationOptions(po *PaginationOptions) QueryOption {
+	return func(qo *QueryOptions) {
+		qo.PaginationOptions = po
+	}
+}
+
 type PaginationOptions struct {
 	Backward bool
 	Cursor   string
-	Limit    int
+	Limit    uint64
 
 	// Will be set by Nidhi
 	HasMore bool
@@ -62,6 +74,12 @@ type GetOption func(*GetOptions)
 func WithGetOptions(o GetOptions) GetOption {
 	return func(opt *GetOptions) {
 		*opt = o
+	}
+}
+
+func WithGetViewMask(vm []string) GetOption {
+	return func(opt *GetOptions) {
+		opt.ViewMask = vm
 	}
 }
 
