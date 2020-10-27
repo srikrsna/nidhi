@@ -406,15 +406,3 @@ func difference(slice1 []string, slice2 []string) []string {
 
 	return diff
 }
-
-type txNoop struct {
-	*sql.DB
-}
-
-func (*txNoop) Rollback() error {
-	return nil
-}
-
-func (*txNoop) Commit() error {
-	return nil
-}
