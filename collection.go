@@ -20,33 +20,21 @@ const (
 	notDeleted = "NOT (metadata ?? 'deleted')"
 )
 
-// TODO: Parent
+// TODO: Parent and Id autogenerate
 // TODO: Generation
 // TODO: Add Custum OrderBy Pagination
 // TODO: Transaction Support
 // TODO: Aggregate Functions
 
-type Collection struct {
+type collection struct {
 	table string
-	db    *sql.DB
+	tx    sq.BaseRunner
 
 	subFunc SubjectFunc
 	fields  []string
 }
 
-func OpenCollection(ctx context.Context, db *sql.DB, schema, name string, opts CollectionOptions) (*Collection, error) {
-	if _, err := db.ExecContext(ctx, `CREATE SCHEMA IF NOT EXISTS `+schema); err != nil {
-		return nil, fmt.Errorf("nidhi: unable to open collection: %s, err: %w", name, err)
-	}
-	const query = `CREATE TABLE IF NOT EXISTS %s.%s (id TEXT NOT NULL PRIMARY KEY, revision bigint NOT NULL, document JSONB NOT NULL, metadata JSONB NOT NULL DEFAULT '{}')`
-	if _, err := db.ExecContext(ctx, fmt.Sprintf(query, schema, name)); err != nil {
-		return nil, fmt.Errorf("nidhi: unable to open collection: %s, err: %w", name, err)
-	}
-
-	return &Collection{table: schema + "." + name, db: db, subFunc: opts.SubjectFunc, fields: opts.Fields}, nil
-}
-
-func (c *Collection) Create(ctx context.Context, doc Document, ops []CreateOption) (string, error) {
+func (c *collection) Create(ctx context.Context, doc Document, ops []CreateOption) (string, error) {
 	var cop CreateOptions
 	for _, op := range ops {
 		op(&cop)
@@ -77,7 +65,7 @@ func (c *Collection) Create(ctx context.Context, doc Document, ops []CreateOptio
 		args = append(args, JSONB(&Metadata{Updated: al}))
 	}
 
-	if _, err := c.db.ExecContext(ctx,
+	if _, err := c.tx.ExecContext(ctx,
 		query,
 		args...,
 	); err != nil {
@@ -87,7 +75,7 @@ func (c *Collection) Create(ctx context.Context, doc Document, ops []CreateOptio
 	return id, nil
 }
 
-func (c *Collection) Replace(ctx context.Context, doc Document, ops []ReplaceOption) error {
+func (c *collection) Replace(ctx context.Context, doc Document, ops []ReplaceOption) error {
 	var rop ReplaceOptions
 	for _, op := range ops {
 		op(&rop)
@@ -107,7 +95,7 @@ func (c *Collection) Replace(ctx context.Context, doc Document, ops []ReplaceOpt
 
 	stmt = stmt.Where(sq.Eq{idCol: doc.DocumentId()}).Where(notDeleted)
 
-	rc, err := sq.RowsAffected(stmt.PlaceholderFormat(sq.Dollar).RunWith(c.db).ExecContext(ctx))
+	rc, err := sq.RowsAffected(stmt.PlaceholderFormat(sq.Dollar).RunWith(c.tx).ExecContext(ctx))
 	if err != nil {
 		return fmt.Errorf("nidhi: unable to put document in database: %w", err)
 	}
@@ -119,7 +107,7 @@ func (c *Collection) Replace(ctx context.Context, doc Document, ops []ReplaceOpt
 	return nil
 }
 
-func (c *Collection) Update(ctx context.Context, doc Document, f Filter, ops []UpdateOption) error {
+func (c *collection) Update(ctx context.Context, doc Document, f Filter, ops []UpdateOption) error {
 	var uop UpdateOptions
 	for _, op := range ops {
 		op(&uop)
@@ -146,14 +134,14 @@ func (c *Collection) Update(ctx context.Context, doc Document, f Filter, ops []U
 
 	st = st.Where(notDeleted)
 
-	if _, err := st.PlaceholderFormat(sq.Dollar).RunWith(c.db).ExecContext(ctx); err != nil {
+	if _, err := st.PlaceholderFormat(sq.Dollar).RunWith(c.tx).ExecContext(ctx); err != nil {
 		return fmt.Errorf("nidhi: unable to update documents for collection: %s, err: %w", c.table, err)
 	}
 
 	return nil
 }
 
-func (c *Collection) Delete(ctx context.Context, id string, ops []DeleteOption) error {
+func (c *collection) Delete(ctx context.Context, id string, ops []DeleteOption) error {
 	var dop DeleteOptions
 	for _, op := range ops {
 		op(&dop)
@@ -181,14 +169,14 @@ func (c *Collection) Delete(ctx context.Context, id string, ops []DeleteOption) 
 		}
 	}
 
-	if _, err := c.db.ExecContext(ctx, sql, args...); err != nil {
+	if _, err := c.tx.ExecContext(ctx, sql, args...); err != nil {
 		return fmt.Errorf("nidhi: unable to delete a document of collection: %s, err: %w", c.table, err)
 	}
 
 	return nil
 }
 
-func (c *Collection) DeleteMany(ctx context.Context, f Filter, ops []DeleteOption) error {
+func (c *collection) DeleteMany(ctx context.Context, f Filter, ops []DeleteOption) error {
 	var dop DeleteOptions
 	for _, op := range ops {
 		op(&dop)
@@ -229,14 +217,14 @@ func (c *Collection) DeleteMany(ctx context.Context, f Filter, ops []DeleteOptio
 		}
 	}
 
-	if _, err := c.db.ExecContext(ctx, sql, args...); err != nil {
+	if _, err := c.tx.ExecContext(ctx, sql, args...); err != nil {
 		return fmt.Errorf("nidhi: unable to delete a document of collection: %s, err: %w", c.table, err)
 	}
 
 	return nil
 }
 
-func (c *Collection) Query(ctx context.Context, f Filter, ctr func() Document, ops []QueryOption) error {
+func (c *collection) Query(ctx context.Context, f Filter, ctr func() Document, ops []QueryOption) error {
 	var qop QueryOptions
 	for _, op := range ops {
 		op(&qop)
@@ -274,7 +262,7 @@ func (c *Collection) Query(ctx context.Context, f Filter, ctr func() Document, o
 		st = st.Limit(qop.PaginationOptions.Limit + 1)
 	}
 
-	rows, err := st.PlaceholderFormat(sq.Dollar).RunWith(c.db).QueryContext(ctx)
+	rows, err := st.PlaceholderFormat(sq.Dollar).RunWith(c.tx).QueryContext(ctx)
 	if err != nil {
 		return fmt.Errorf("nidhi: unable to query collection: %s, err: %w", c.table, err)
 	}
@@ -312,7 +300,7 @@ func (c *Collection) Query(ctx context.Context, f Filter, ctr func() Document, o
 	return nil
 }
 
-func (c *Collection) Get(ctx context.Context, id string, doc Document, ops []GetOption) error {
+func (c *collection) Get(ctx context.Context, id string, doc Document, ops []GetOption) error {
 	var gop GetOptions
 	for _, op := range ops {
 		op(&gop)
@@ -326,7 +314,7 @@ func (c *Collection) Get(ctx context.Context, id string, doc Document, ops []Get
 	st := sq.Select().Column(selection).From(c.table).Where(sq.Eq{idCol: id}).Where(notDeleted)
 
 	var entity []byte
-	if err := st.PlaceholderFormat(sq.Dollar).RunWith(c.db).QueryRowContext(ctx).Scan(&entity); err != nil {
+	if err := st.PlaceholderFormat(sq.Dollar).RunWith(c.tx).QueryRowContext(ctx).Scan(&entity); err != nil {
 		return fmt.Errorf("nidhi: unable to get a document from collection %q, err: %w", c.table, err)
 	}
 
@@ -340,7 +328,7 @@ func (c *Collection) Get(ctx context.Context, id string, doc Document, ops []Get
 	return nil
 }
 
-func (c *Collection) Count(ctx context.Context, f Filter, ops []CountOption) (int64, error) {
+func (c *collection) Count(ctx context.Context, f Filter, ops []CountOption) (int64, error) {
 	var qop CountOptions
 	for _, op := range ops {
 		op(&qop)
@@ -358,14 +346,14 @@ func (c *Collection) Count(ctx context.Context, f Filter, ops []CountOption) (in
 	}
 
 	var count int64
-	if err := st.PlaceholderFormat(sq.Dollar).RunWith(c.db).QueryRowContext(ctx).Scan(&count); err != nil {
+	if err := st.PlaceholderFormat(sq.Dollar).RunWith(c.tx).QueryRowContext(ctx).Scan(&count); err != nil {
 		return 0, fmt.Errorf("nidhi: unable to query collection: %s, err: %w", c.table, err)
 	}
 
 	return count, nil
 }
 
-func (c *Collection) activityLog(ctx context.Context) *ActivityLog {
+func (c *collection) activityLog(ctx context.Context) *ActivityLog {
 	sub := ""
 	if c.subFunc != nil {
 		sub = c.subFunc(ctx)
@@ -376,7 +364,7 @@ func (c *Collection) activityLog(ctx context.Context) *ActivityLog {
 	}
 }
 
-func (c *Collection) updateStatement(ctx context.Context, buf []byte, merge bool) *sq.UpdateBuilder {
+func (c *collection) updateStatement(ctx context.Context, buf []byte, merge bool) *sq.UpdateBuilder {
 	st := sq.Update(c.table).
 		Set(revCol, sq.Expr(revCol+" + 1 ")).
 		Set(metaCol, sq.Expr(metaCol+" || ? ", JSONB(&Metadata{Updated: c.activityLog(ctx)})))
@@ -423,4 +411,16 @@ func difference(slice1 []string, slice2 []string) []string {
 	}
 
 	return diff
+}
+
+type txNoop struct {
+	*sql.DB
+}
+
+func (*txNoop) Rollback() error {
+	return nil
+}
+
+func (*txNoop) Commit() error {
+	return nil
 }
