@@ -124,7 +124,7 @@ func getRandomBook() manual.Book {
 			Bio:  "Bio of Author",
 		},
 		Title: "The Book",
-		Pages: []*manual.Page{&manual.Page{
+		Pages: []*manual.Page{{
 			Number:  12,
 			Content: "This is a page",
 		}},

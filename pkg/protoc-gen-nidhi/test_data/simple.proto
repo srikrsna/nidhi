@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+package test;
+
+option go_package =
+    "github.com/srikrsna/nidhi/pkg/protoc-gen-nidhi/test_data;pb";
+
+import "nidhi/nidhi.proto";
+
+message Book {
+  option(nidhi.prefix) = 'bok';
+
+  string id = 1;
+  string title = 2;
+
+  Author author = 3;
+  int32 page_count = 4;
+}
+
+message Author {
+  string name = 1;
+  string bio = 2;
+}
+
+message Page {
+  int32 number = 1;
+  string content = 2;
+}
