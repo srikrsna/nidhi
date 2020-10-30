@@ -12,10 +12,10 @@ import (
 )
 
 const (
-	idCol   = "id"
-	docCol  = "document"
-	revCol  = `"revision"`
-	metaCol = "metadata"
+	ColId   = "id"
+	ColDoc  = "document"
+	ColRev  = `"revision"`
+	ColMeta = "metadata"
 
 	notDeleted = "NOT (metadata ?? 'deleted')"
 )
@@ -84,10 +84,10 @@ func (c *collection) Replace(ctx context.Context, doc Document, ops []ReplaceOpt
 
 	stmt := c.updateStatement(ctx, stream.Buffer(), false)
 	if rop.Revision > 0 {
-		stmt = stmt.Where(sq.Eq{revCol: rop.Revision})
+		stmt = stmt.Where(sq.Eq{ColRev: rop.Revision})
 	}
 
-	stmt = stmt.Where(sq.Eq{idCol: doc.DocumentId()}).Where(notDeleted)
+	stmt = stmt.Where(sq.Eq{ColId: doc.DocumentId()}).Where(notDeleted)
 
 	rc, err := sq.RowsAffected(stmt.PlaceholderFormat(sq.Dollar).RunWith(c.tx).ExecContext(ctx))
 	if err != nil {
@@ -101,7 +101,7 @@ func (c *collection) Replace(ctx context.Context, doc Document, ops []ReplaceOpt
 	return nil
 }
 
-func (c *collection) Update(ctx context.Context, doc Document, f Filter, ops []UpdateOption) error {
+func (c *collection) Update(ctx context.Context, doc Document, f Sqlizer, ops []UpdateOption) error {
 	var uop UpdateOptions
 	for _, op := range ops {
 		op(&uop)
@@ -118,12 +118,7 @@ func (c *collection) Update(ctx context.Context, doc Document, f Filter, ops []U
 	st := c.updateStatement(ctx, stream.Buffer(), true)
 
 	if f != nil {
-		cond, err := f.ToSql(docCol)
-		if err != nil {
-			return fmt.Errorf("nidhi: invalid filter received for collection: %s, err: %w", c.table, err)
-		}
-
-		st = st.Where(cond)
+		st = st.Where(f)
 	}
 
 	st = st.Where(notDeleted)
@@ -147,15 +142,15 @@ func (c *collection) Delete(ctx context.Context, id string, ops []DeleteOption) 
 		err  error
 	)
 	if dop.Permanent {
-		sql, args, err = sq.Delete(c.table).Where(sq.Eq{idCol: id}).PlaceholderFormat(sq.Dollar).ToSql()
+		sql, args, err = sq.Delete(c.table).Where(sq.Eq{ColId: id}).PlaceholderFormat(sq.Dollar).ToSql()
 		if err != nil {
 			return fmt.Errorf("nidhi: there seems to be a bug: unable to build delete statement: %w", err)
 		}
 	} else {
 		st := sq.Update(c.table).
-			Where(sq.Eq{idCol: id}).
+			Where(sq.Eq{ColId: id}).
 			Where(notDeleted).
-			Set(metaCol, merge(metaCol, &Metadata{Deleted: c.activityLog(ctx)}))
+			Set(ColMeta, merge(ColMeta, &Metadata{Deleted: c.activityLog(ctx)}))
 
 		sql, args, err = st.PlaceholderFormat(sq.Dollar).ToSql()
 		if err != nil {
@@ -170,7 +165,7 @@ func (c *collection) Delete(ctx context.Context, id string, ops []DeleteOption) 
 	return nil
 }
 
-func (c *collection) DeleteMany(ctx context.Context, f Filter, ops []DeleteOption) error {
+func (c *collection) DeleteMany(ctx context.Context, f Sqlizer, ops []DeleteOption) error {
 	var dop DeleteOptions
 	for _, op := range ops {
 		op(&dop)
@@ -184,27 +179,19 @@ func (c *collection) DeleteMany(ctx context.Context, f Filter, ops []DeleteOptio
 	if dop.Permanent {
 		st := sq.Delete(c.table)
 		if f != nil {
-			cond, err := f.ToSql(docCol)
-			if err != nil {
-				return fmt.Errorf("nidhi: invalid filter received for collection: %s, err: %w", c.table, err)
-			}
-
-			st = st.Where(cond)
+			st = st.Where(f)
 		}
 		sql, args, err = st.PlaceholderFormat(sq.Dollar).ToSql()
 		if err != nil {
 			return fmt.Errorf("nidhi: there seems to be a bug: unable to build delete statement: %w", err)
 		}
 	} else {
-		st := sq.Update(c.table).Set(metaCol, merge(metaCol, &Metadata{Deleted: c.activityLog(ctx)}))
+		st := sq.Update(c.table).Set(ColMeta, merge(ColMeta, &Metadata{Deleted: c.activityLog(ctx)}))
 		if f != nil {
-			cond, err := f.ToSql(docCol)
-			if err != nil {
-				return fmt.Errorf("nidhi: invalid filter received for collection: %s, err: %w", c.table, err)
-			}
-
-			st = st.Where(cond).Where(notDeleted)
+			st = st.Where(f)
 		}
+		st = st.Where(notDeleted)
+
 		sql, args, err = st.PlaceholderFormat(sq.Dollar).ToSql()
 		if err != nil {
 			return fmt.Errorf("nidhi: there seems to be a bug: unable to build delete statement: %w", err)
@@ -218,38 +205,35 @@ func (c *collection) DeleteMany(ctx context.Context, f Filter, ops []DeleteOptio
 	return nil
 }
 
-func (c *collection) Query(ctx context.Context, f Filter, ctr func() Document, ops []QueryOption) error {
+func (c *collection) Query(ctx context.Context, f Sqlizer, ctr func() Document, ops []QueryOption) error {
 	var qop QueryOptions
 	for _, op := range ops {
 		op(&qop)
 	}
 
-	var selection interface{} = docCol
+	var selection interface{} = ColDoc
 	if len(c.fields) > 0 && len(qop.ViewMask) > 0 {
-		selection = sq.Expr(docCol+" - ?::text[]", pg.Array(difference(c.fields, qop.ViewMask)))
+		selection = sq.Expr(ColDoc+" - ?::text[]", pg.Array(difference(c.fields, qop.ViewMask)))
 	}
 	st := sq.Select().Column(selection).From(c.table)
 
 	if f != nil {
-		cond, err := f.ToSql(docCol)
-		if err != nil {
-			return fmt.Errorf("nidhi: invalid filter received for collection: %s, err: %w", c.table, err)
-		}
-
-		st = st.Where(cond).Where(notDeleted)
+		st = st.Where(f)
 	}
+
+	st = st.Where(notDeleted)
 
 	if qop.PaginationOptions != nil {
 		if qop.PaginationOptions.Backward {
 			if qop.PaginationOptions.Cursor != "" {
-				st = st.Where(idCol+" < ?", qop.PaginationOptions.Cursor)
+				st = st.Where(ColId+" < ?", qop.PaginationOptions.Cursor)
 			}
-			st = st.OrderBy(idCol + ` DESC`)
+			st = st.OrderBy(ColId + ` DESC`)
 		} else {
 			if qop.PaginationOptions.Cursor != "" {
-				st = st.Where(idCol+" > ?", qop.PaginationOptions.Cursor)
+				st = st.Where(ColId+" > ?", qop.PaginationOptions.Cursor)
 			}
-			st = st.OrderBy(idCol + ` ASC`)
+			st = st.OrderBy(ColId + ` ASC`)
 		}
 
 		qop.PaginationOptions.HasMore = false
@@ -300,12 +284,12 @@ func (c *collection) Get(ctx context.Context, id string, doc Document, ops []Get
 		op(&gop)
 	}
 
-	var selection interface{} = docCol
+	var selection interface{} = ColDoc
 	if len(c.fields) > 0 && len(gop.ViewMask) > 0 {
-		selection = sq.Expr(docCol+" - ?::text[]", pg.Array(difference(c.fields, gop.ViewMask)))
+		selection = sq.Expr(ColDoc+" - ?::text[]", pg.Array(difference(c.fields, gop.ViewMask)))
 	}
 
-	st := sq.Select().Column(selection).From(c.table).Where(sq.Eq{idCol: id}).Where(notDeleted)
+	st := sq.Select().Column(selection).From(c.table).Where(sq.Eq{ColId: id}).Where(notDeleted)
 
 	var entity []byte
 	if err := st.PlaceholderFormat(sq.Dollar).RunWith(c.tx).QueryRowContext(ctx).Scan(&entity); err != nil {
@@ -322,7 +306,7 @@ func (c *collection) Get(ctx context.Context, id string, doc Document, ops []Get
 	return nil
 }
 
-func (c *collection) Count(ctx context.Context, f Filter, ops []CountOption) (int64, error) {
+func (c *collection) Count(ctx context.Context, f Sqlizer, ops []CountOption) (int64, error) {
 	var qop CountOptions
 	for _, op := range ops {
 		op(&qop)
@@ -331,13 +315,10 @@ func (c *collection) Count(ctx context.Context, f Filter, ops []CountOption) (in
 	st := sq.Select("count(*)").From(c.table)
 
 	if f != nil {
-		cond, err := f.ToSql(docCol)
-		if err != nil {
-			return 0, fmt.Errorf("nidhi: invalid filter received for collection: %s, err: %w", c.table, err)
-		}
-
-		st = st.Where(cond)
+		st = st.Where(f)
 	}
+
+	st = st.Where(notDeleted)
 
 	var count int64
 	if err := st.PlaceholderFormat(sq.Dollar).RunWith(c.tx).QueryRowContext(ctx).Scan(&count); err != nil {
@@ -360,13 +341,13 @@ func (c *collection) activityLog(ctx context.Context) *ActivityLog {
 
 func (c *collection) updateStatement(ctx context.Context, buf []byte, merge bool) *sq.UpdateBuilder {
 	st := sq.Update(c.table).
-		Set(revCol, sq.Expr(revCol+" + 1 ")).
-		Set(metaCol, sq.Expr(metaCol+" || ? ", JSONB(&Metadata{Updated: c.activityLog(ctx)})))
+		Set(ColRev, sq.Expr(ColRev+" + 1 ")).
+		Set(ColMeta, sq.Expr(ColMeta+" || ? ", JSONB(&Metadata{Updated: c.activityLog(ctx)})))
 
 	if merge {
-		st = st.Set(docCol, sq.Expr(docCol+" || ? ", buf))
+		st = st.Set(ColDoc, sq.Expr(ColDoc+" || ? ", buf))
 	} else {
-		st = st.Set(docCol, buf)
+		st = st.Set(ColDoc, buf)
 	}
 
 	return st

@@ -13,12 +13,12 @@ import (
 type nidhiCol interface {
 	Create(ctx context.Context, doc nidhi.Document, ops []nidhi.CreateOption) (string, error)
 	Replace(ctx context.Context, doc nidhi.Document, ops []nidhi.ReplaceOption) error
-	Update(ctx context.Context, doc nidhi.Document, f nidhi.Filter, ops []nidhi.UpdateOption) error
+	Update(ctx context.Context, doc nidhi.Document, f nidhi.Sqlizer, ops []nidhi.UpdateOption) error
 	Delete(ctx context.Context, id string, ops []nidhi.DeleteOption) error
-	DeleteMany(ctx context.Context, f nidhi.Filter, ops []nidhi.DeleteOption) error
-	Query(ctx context.Context, f nidhi.Filter, ctr func() nidhi.Document, ops []nidhi.QueryOption) error
+	DeleteMany(ctx context.Context, f nidhi.Sqlizer, ops []nidhi.DeleteOption) error
+	Query(ctx context.Context, f nidhi.Sqlizer, ctr func() nidhi.Document, ops []nidhi.QueryOption) error
 	Get(ctx context.Context, id string, doc nidhi.Document, ops []nidhi.GetOption) error
-	Count(ctx context.Context, f nidhi.Filter, ops []nidhi.CountOption) (int64, error)
+	Count(ctx context.Context, f nidhi.Sqlizer, ops []nidhi.CountOption) (int64, error)
 }
 
 type Book struct {
@@ -50,13 +50,7 @@ func (doc *Book) MarshalDocument(w *jsoniter.Stream) error {
 			w.WriteMore()
 		}
 		w.WriteObjectField("pages")
-		w.WriteArrayStart()
-		doc.Pages[0].MarshalDocument(w)
-		for _, e := range doc.Pages[1:] {
-			w.WriteMore()
-			w.Error = e.MarshalDocument(w)
-		}
-		w.WriteArrayEnd()
+		w.Error = PageSlice(doc.Pages).MarshalDocument(w)
 	}
 	w.WriteObjectEnd()
 
@@ -80,12 +74,8 @@ func (doc *Book) UnmarshalDocument(r *jsoniter.Iterator) error {
 		case "pageCount":
 			doc.PageCount = r.ReadInt()
 		case "pages":
-			r.ReadArrayCB(func(r *jsoniter.Iterator) bool {
-				var e Page
-				r.Error = e.UnmarshalDocument(r)
-				doc.Pages = append(doc.Pages, &e)
-				return true
-			})
+			doc.Pages = []*Page{}
+			r.Error = (*PageSlice)(&doc.Pages).UnmarshalDocument(r)
 		default:
 			r.Skip()
 		}
@@ -183,59 +173,140 @@ func (p *Page) MarshalDocument(w *jsoniter.Stream) error {
 	return w.Error
 }
 
-type BookFilter struct {
-	Or bool
+type PageSlice []*Page
 
-	Id, Title *nidhi.StringFilter
-	PageCount *nidhi.IntFilter
-	Author    *AuthorFilter
-	Pages     []*Page
+func (s PageSlice) MarshalDocument(w *jsoniter.Stream) error {
+	w.WriteArrayStart()
+	s[0].MarshalDocument(w)
+	for _, e := range s[1:] {
+		w.WriteMore()
+		w.Error = e.MarshalDocument(w)
+	}
+	w.WriteArrayEnd()
+
+	return w.Error
 }
 
-func (f *BookFilter) ToSql(prefix string) (nidhi.Sqlizer, error) {
-	of := &nidhi.ObjectFilter{}
-	of.Or = f.Or
-	var fp, op string
-	if prefix != "" {
-		fp = prefix + "->>"
-		op = prefix + "->"
-		_, _ = fp, op
-	}
+func (s *PageSlice) UnmarshalDocument(r *jsoniter.Iterator) error {
+	r.ReadArrayCB(func(r *jsoniter.Iterator) bool {
+		var e Page
+		r.Error = e.UnmarshalDocument(r)
+		*s = append(*s, &e)
+		return true
+	})
 
-	pages := make(nidhi.ObjectArrayFilter, 0, len(f.Pages))
-	for _, e := range f.Pages {
-		pages = append(pages, e)
-	}
-
-	of.Filter = map[string]nidhi.Filter{
-		fp + "'id'":        f.Id,
-		fp + "'title'":     f.Title,
-		op + "'author'":    f.Author,
-		fp + "'pageCount'": f.PageCount,
-		op + "'pages'":     pages,
-	}
-	return of.ToSql("book")
+	return r.Error
 }
 
-type AuthorFilter struct {
-	Or        bool
-	Name, Bio *nidhi.StringFilter
+type isBookQuery interface {
+	bookQuery()
+	nidhi.Sqlizer
 }
 
-func (f *AuthorFilter) ToSql(prefix string) (nidhi.Sqlizer, error) {
-	of := &nidhi.ObjectFilter{}
-	of.Or = f.Or
-	var fp, op string
-	if prefix != "" {
-		fp = prefix + "->>"
-		op = prefix + "->"
-		_, _ = fp, op
-	}
-	of.Filter = map[string]nidhi.Filter{
-		fp + "'name'": f.Name,
-		fp + "'bio'":  f.Bio,
-	}
-	return of.ToSql("book")
+type BookQuery interface {
+	Id(*nidhi.StringQuery) BookConj
+	Title(*nidhi.StringQuery) BookConj
+	PageCount(*nidhi.IntQuery) BookConj
+	Author() BookAuthorQuery
+
+	// Generic With Type Safety
+	Paren(iq isBookQuery) BookConj
+	Where(query string, args ...interface{}) BookConj
+	Not() BookQuery
+	ReplaceArgs(args ...interface{}) error
+}
+
+type bookQuery nidhi.Query
+
+var _ BookQuery = (*bookQuery)(nil)
+
+type BookConj interface {
+	And() BookQuery
+	Or() BookQuery
+	isBookQuery
+}
+
+type BookAuthorQuery interface {
+	Name(*nidhi.StringQuery) BookConj
+	Bio(*nidhi.StringQuery) BookConj
+}
+
+type bookAuthorQuery nidhi.Query
+
+func (q *bookAuthorQuery) Name(f *nidhi.StringQuery) BookConj {
+	(*nidhi.Query)(q).Field("->'name'", f)
+	return (*bookQuery)(q)
+}
+
+func (q *bookAuthorQuery) Bio(f *nidhi.StringQuery) BookConj {
+	(*nidhi.Query)(q).Field("->'bio'", f)
+	return (*bookQuery)(q)
+}
+
+func (q *bookQuery) bookQuery() {}
+
+func (q *bookQuery) Id(f *nidhi.StringQuery) BookConj {
+	q.query().Id(f)
+	return q
+}
+
+func (q *bookQuery) Title(f *nidhi.StringQuery) BookConj {
+	q.query().Field(" "+nidhi.ColDoc+"->>'title'", f)
+	return q
+}
+
+func (q *bookQuery) PageCount(f *nidhi.IntQuery) BookConj {
+	q.query().Field(" "+nidhi.ColDoc+"->'pageCount'", f)
+	return q
+}
+
+func (q *bookQuery) Author() BookAuthorQuery {
+	q.query().Prefix(" " + nidhi.ColDoc + "->>'author'")
+	return (*bookAuthorQuery)(q)
+}
+
+func (q *bookQuery) Pages(pp ...*Page) BookConj {
+	q.query().Field(" "+nidhi.ColDoc+"->'pages'", nidhi.MarshalerQuery{
+		Marshaler: PageSlice(pp),
+	})
+	return q
+}
+
+func (q *bookQuery) Paren(iq isBookQuery) BookConj {
+	q.query().Paren(iq)
+	return q
+}
+
+func (q *bookQuery) Where(query string, args ...interface{}) BookConj {
+	q.query().Where(query, args...)
+	return q
+}
+
+func (q *bookQuery) Not() BookQuery {
+	q.query().Not()
+	return q
+}
+
+func (q *bookQuery) And() BookQuery {
+	q.query().And()
+	return q
+}
+
+func (q *bookQuery) Or() BookQuery {
+	q.query().Or()
+	return q
+}
+
+func (q *bookQuery) ReplaceArgs(args ...interface{}) error {
+	return q.query().ReplaceArgs()
+}
+
+func (q *bookQuery) ToSql() (string, []interface{}, error) {
+	return q.query().ToSql()
+}
+
+func (q *bookQuery) query() *nidhi.Query {
+	return (*nidhi.Query)(q)
 }
 
 type BookCollection struct {
@@ -296,7 +367,7 @@ func (bs *bookCollection) CreateBook(ctx context.Context, b *Book, ops ...nidhi.
 	return bs.col.Create(ctx, b, ops)
 }
 
-func (bs *bookCollection) QueryBooks(ctx context.Context, f nidhi.Filter, ops ...nidhi.QueryOption) ([]*Book, error) {
+func (bs *bookCollection) QueryBooks(ctx context.Context, f isBookQuery, ops ...nidhi.QueryOption) ([]*Book, error) {
 	var ee []*Book
 	ctr := func() nidhi.Document {
 		var e Book
@@ -315,7 +386,7 @@ func (bs *bookCollection) DeleteBook(ctx context.Context, id string, ops ...nidh
 	return bs.col.Delete(ctx, id, ops)
 }
 
-func (bs *bookCollection) CountBooks(ctx context.Context, f nidhi.Filter, ops ...nidhi.CountOption) (int64, error) {
+func (bs *bookCollection) CountBooks(ctx context.Context, f isBookQuery, ops ...nidhi.CountOption) (int64, error) {
 	return bs.col.Count(ctx, f, ops)
 }
 
@@ -324,7 +395,7 @@ func (bs *bookCollection) GetBook(ctx context.Context, id string, ops ...nidhi.G
 	return &entity, bs.col.Get(ctx, id, &entity, ops)
 }
 
-func (bs *bookCollection) UpdateBooks(ctx context.Context, b *Book, f nidhi.Filter, ops ...nidhi.UpdateOption) error {
+func (bs *bookCollection) UpdateBooks(ctx context.Context, b *Book, f isBookQuery, ops ...nidhi.UpdateOption) error {
 	return bs.col.Update(ctx, b, f, ops)
 }
 

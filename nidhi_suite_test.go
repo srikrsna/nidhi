@@ -4,7 +4,6 @@ import (
 	"errors"
 	"testing"
 
-	sq "github.com/elgris/sqrl"
 	jsoniter "github.com/json-iterator/go"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -81,26 +80,62 @@ func (doc *testDoc) UnmarshalDocument(r *jsoniter.Iterator) error {
 	return r.Error
 }
 
-type testFilter struct {
-	Or     bool
-	Id     *nidhi.StringFilter
-	Number *nidhi.IntFilter
+type testQuery nidhi.Query
+
+func newTestQuery() *testQuery {
+	return (*testQuery)(nidhi.GetQuery())
 }
 
-func (f *testFilter) ToSql(prefix string) (sq.Sqlizer, error) {
-	of := &nidhi.ObjectFilter{}
-	of.Or = f.Or
-	var fp, op string
-	if prefix != "" {
-		fp = prefix + "->>"
-		op = prefix + "->"
-		_, _ = fp, op
-	}
+func (q *testQuery) query() *nidhi.Query {
+	return (*nidhi.Query)(q)
+}
 
-	of.Filter = map[string]nidhi.Filter{
-		fp + "'Id'":     f.Id,
-		fp + "'Number'": f.Number,
-	}
+func (q *testQuery) Id(f *nidhi.StringQuery) testConjuction {
+	q.query().Id(f)
+	return q
+}
 
-	return of.ToSql("book")
+func (q *testQuery) Number(f *nidhi.IntQuery) testConjuction {
+	q.query().Field("->'Number'", f)
+	return q
+}
+
+func (q *testQuery) Where(query string, args ...interface{}) testConjuction {
+	q.query().Where(query, args...)
+	return q
+}
+
+func (q *testQuery) Not() *testQuery {
+	q.query().Not()
+	return q
+}
+
+func (q *testQuery) Paren(iq *testQuery) testConjuction {
+	q.query().Paren(iq)
+	return q
+}
+
+func (q *testQuery) And() *testQuery {
+	q.query().And()
+	return q
+}
+
+func (q *testQuery) Or() *testQuery {
+	q.query().Or()
+	return q
+}
+
+func (q *testQuery) ToSql() (string, []interface{}, error) {
+	return q.query().ToSql()
+}
+
+type testConjuction interface {
+	And() *testQuery
+	Or() *testQuery
+
+	nidhi.Sqlizer
+}
+
+func (q *testQuery) Reset() {
+	q.query().Reset()
 }

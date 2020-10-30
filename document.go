@@ -75,3 +75,11 @@ func (j jsonb) Value() (driver.Value, error) {
 
 	return data, nil
 }
+
+type NoopUnmarshaler struct {
+	Marshaler
+}
+
+func (NoopUnmarshaler) UnmarshalDocument(_ *jsoniter.Iterator) error {
+	return nil
+}

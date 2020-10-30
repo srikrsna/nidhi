@@ -112,11 +112,11 @@ var _ = Describe("Collection", func() {
 
 		qf := func(opts ...nidhi.QueryOption) ([]*testDoc, error) {
 			var act []*testDoc
+			f := &testQuery{}
+			f.Number(&nidhi.IntQuery{Gt: nidhi.Int64(int64(marker))})
 			return act, col.Query(
 				ctx,
-				&testFilter{
-					Number: &nidhi.IntFilter{Gt: nidhi.Int64(int64(marker))},
-				},
+				newTestQuery().Number(&nidhi.IntQuery{Gt: nidhi.Int64(int64(marker))}),
 				func() nidhi.Document {
 					var doc testDoc
 					act = append(act, &doc)
@@ -212,18 +212,14 @@ var _ = Describe("Collection", func() {
 				&testDoc{
 					Number: -1,
 				},
-				&testFilter{
-					Number: &nidhi.IntFilter{Gt: nidhi.Int64(int64(marker))},
-				},
+				newTestQuery().Number(&nidhi.IntQuery{Gt: nidhi.Int64(int64(marker))}),
 				nil,
 			)).To(Succeed())
 
 			var act []*testDoc
 			Expect(col.Query(
 				ctx,
-				&testFilter{
-					Number: &nidhi.IntFilter{Eq: nidhi.Int64(-1)},
-				},
+				newTestQuery().Number(&nidhi.IntQuery{Eq: nidhi.Int64(-1)}),
 				func() nidhi.Document {
 					var doc testDoc
 					act = append(act, &doc)
@@ -241,9 +237,10 @@ var _ = Describe("Collection", func() {
 		})
 
 		It("count documents based on a query", func() {
-			Expect(col.Count(ctx, &testFilter{
-				Number: &nidhi.IntFilter{Gt: nidhi.Int64(int64(marker))},
-			}, nil)).To(Equal(int64(len(aboveMarker))))
+			Expect(col.Count(ctx,
+				newTestQuery().Number(&nidhi.IntQuery{Gt: nidhi.Int64(int64(marker))}),
+				nil,
+			)).To(Equal(int64(len(aboveMarker))))
 		})
 	})
 
