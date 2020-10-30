@@ -198,6 +198,14 @@ func (s *PageSlice) UnmarshalDocument(r *jsoniter.Iterator) error {
 	return r.Error
 }
 
+func GetBookQuery() BookQuery {
+	return (*bookQuery)(nidhi.GetQuery())
+}
+
+func PutBookQuery(q BookQuery) {
+	nidhi.PutQuery((*nidhi.Query)(q.(*bookQuery)))
+}
+
 type isBookQuery interface {
 	bookQuery()
 	nidhi.Sqlizer
@@ -218,7 +226,11 @@ type BookQuery interface {
 
 type bookQuery nidhi.Query
 
-var _ BookQuery = (*bookQuery)(nil)
+var (
+	_ BookQuery       = (*bookQuery)(nil)
+	_ BookConj        = (*bookQuery)(nil)
+	_ BookAuthorQuery = (*bookAuthorQuery)(nil)
+)
 
 type BookConj interface {
 	And() BookQuery
