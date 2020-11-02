@@ -15,6 +15,8 @@ message Book {
 
   Author author = 3;
   int32 page_count = 4;
+
+  repeated Page pages = 5;
 }
 
 message Author {

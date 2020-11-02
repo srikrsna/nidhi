@@ -3,5 +3,6 @@ plugins:
   - name: go
     out: .
     opt: paths=source_relative
-  - name: debug
-    out: debug
+  - name: nidhi
+    out: .
+    opt: paths=source_relative

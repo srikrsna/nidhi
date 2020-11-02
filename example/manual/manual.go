@@ -70,7 +70,7 @@ func (doc *Book) UnmarshalDocument(r *jsoniter.Iterator) error {
 			doc.Title = r.ReadString()
 		case "author":
 			doc.Author = &Author{}
-			doc.Author.UnmarshalDocument(r)
+			r.Error = doc.Author.UnmarshalDocument(r)
 		case "pageCount":
 			doc.PageCount = r.ReadInt()
 		case "pages":
@@ -177,7 +177,7 @@ type PageSlice []*Page
 
 func (s PageSlice) MarshalDocument(w *jsoniter.Stream) error {
 	w.WriteArrayStart()
-	s[0].MarshalDocument(w)
+	w.Error = s[0].MarshalDocument(w)
 	for _, e := range s[1:] {
 		w.WriteMore()
 		w.Error = e.MarshalDocument(w)
@@ -258,66 +258,66 @@ func (q *bookAuthorQuery) Bio(f *nidhi.StringQuery) BookConj {
 func (q *bookQuery) bookQuery() {}
 
 func (q *bookQuery) Id(f *nidhi.StringQuery) BookConj {
-	q.query().Id(f)
+	q.qry().Id(f)
 	return q
 }
 
 func (q *bookQuery) Title(f *nidhi.StringQuery) BookConj {
-	q.query().Field(" "+nidhi.ColDoc+"->>'title'", f)
+	q.qry().Field(" "+nidhi.ColDoc+"->>'title'", f)
 	return q
 }
 
 func (q *bookQuery) PageCount(f *nidhi.IntQuery) BookConj {
-	q.query().Field(" "+nidhi.ColDoc+"->'pageCount'", f)
+	q.qry().Field(" "+nidhi.ColDoc+"->'pageCount'", f)
 	return q
 }
 
 func (q *bookQuery) Author() BookAuthorQuery {
-	q.query().Prefix(" " + nidhi.ColDoc + "->>'author'")
+	q.qry().Prefix(" " + nidhi.ColDoc + "->>'author'")
 	return (*bookAuthorQuery)(q)
 }
 
 func (q *bookQuery) Pages(pp ...*Page) BookConj {
-	q.query().Field(" "+nidhi.ColDoc+"->'pages'", nidhi.MarshalerQuery{
+	q.qry().Field(" "+nidhi.ColDoc+"->'pages'", nidhi.MarshalerQuery{
 		Marshaler: PageSlice(pp),
 	})
 	return q
 }
 
 func (q *bookQuery) Paren(iq isBookQuery) BookConj {
-	q.query().Paren(iq)
+	q.qry().Paren(iq)
 	return q
 }
 
 func (q *bookQuery) Where(query string, args ...interface{}) BookConj {
-	q.query().Where(query, args...)
+	q.qry().Where(query, args...)
 	return q
 }
 
 func (q *bookQuery) Not() BookQuery {
-	q.query().Not()
+	q.qry().Not()
 	return q
 }
 
 func (q *bookQuery) And() BookQuery {
-	q.query().And()
+	q.qry().And()
 	return q
 }
 
 func (q *bookQuery) Or() BookQuery {
-	q.query().Or()
+	q.qry().Or()
 	return q
 }
 
 func (q *bookQuery) ReplaceArgs(args ...interface{}) error {
-	return q.query().ReplaceArgs()
+	return q.qry().ReplaceArgs()
 }
 
 func (q *bookQuery) ToSql() (string, []interface{}, error) {
-	return q.query().ToSql()
+	return q.qry().ToSql()
 }
 
-func (q *bookQuery) query() *nidhi.Query {
+func (q *bookQuery) qry() *nidhi.Query {
 	return (*nidhi.Query)(q)
 }
 

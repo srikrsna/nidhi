@@ -1,0 +1,97 @@
+{{- /*gotype: github.com/lyft/protoc-gen-star.Message */ -}}
+
+{{ $name := . | Name }}
+
+func (doc *{{ $name }}) MarshalDocument(w *jsoniter.Stream) error {
+	if doc == nil {
+		w.WriteNil()
+		return w.Error
+	}
+
+	first := true
+
+	w.WriteObjectStart()
+{{- range .Fields }}{{- /*gotype: github.com/lyft/protoc-gen-star.Field */ -}}{{- $gtype := . | GoType }}
+{{- if .Type.IsRepeated }}
+{{- if .Type.Element.IsEmbed }}
+    first = nidhigen.WriteMarshaler(w, "{{ .Name | LowerCamel }}",  {{ $gtype.Element.Value }}Slice(doc.{{ . | Name }}), first)
+{{- else }}
+    first = nidhigen.Write{{ $gtype.Element | Capitalise }}(w, "{{ .Name | LowerCamel }}", doc.{{ . | Name }}, first)
+{{ end }}
+{{- else if .Type.IsEmbed }}
+    first = nidhigen.WriteMarshaler(w, "{{ .Name | LowerCamel }}", doc.{{ . | Name }}, first)
+{{- else }}
+    first = nidhigen.Write{{ $gtype | Capitalise }}(w, "{{ .Name | LowerCamel }}", doc.{{ . | Name }}, first)
+{{- end }}
+{{- end }}
+	w.WriteObjectEnd()
+
+	return w.Error
+}
+
+func (doc *{{ $name }}) UnmarshalDocument(r *jsoniter.Iterator) error {
+	if doc == nil {
+		return errors.New("empty object passed")
+	}
+
+	r.ReadObjectCB(func(r *jsoniter.Iterator, field string) bool {
+		switch field {
+{{- range .Fields }}{{- /*gotype: github.com/lyft/protoc-gen-star.Field */ -}}{{- $gtype := . | GoType }}{{ $fa := printf "%s%s" "doc." (. | Name) }}
+        case "{{ .Name | LowerCamel }}":
+        {{- if .Type.IsRepeated }}
+            {{$fa}} = {{ $gtype }}{}
+            {{- if .Type.Element.IsEmbed }}
+            r.Error = (*{{ $gtype.Element.Value }}Slice)(&{{$fa}}).UnmarshalDocument(r)
+            {{- else }}
+            r.ReadArrayCB(func(r *jsoniter.Iterator) bool {
+                e := r.Read{{ $gtype.Element | Capitalise }}()
+                {{$fa}} = append({{$fa}}, e)
+                return true
+	        })
+            {{- end }}
+        {{- else if .Type.IsEmbed }}
+            {{$fa}} = &{{$gtype.Value}}{}
+            r.Error = {{$fa}}.UnmarshalDocument(r)
+        {{- else }}
+            {{$fa}} = r.Read{{ $gtype | Capitalise }}()
+        {{- end }}
+{{- end }}
+		default:
+			r.Skip()
+		}
+		return true
+	})
+
+	return r.Error
+}
+
+type {{ $name }}Slice []*{{ $name }}
+
+func (s {{ $name }}Slice) MarshalDocument(w *jsoniter.Stream) error {
+    if len(s) == 0 {
+        w.WriteArrayStart()
+        w.WriteArrayEnd()
+        return nil
+    }
+
+	w.WriteArrayStart()
+	w.Error = s[0].MarshalDocument(w)
+	for _, e := range s[1:] {
+		w.WriteMore()
+		w.Error = e.MarshalDocument(w)
+	}
+	w.WriteArrayEnd()
+
+	return w.Error
+}
+
+func (s *{{ $name }}Slice) UnmarshalDocument(r *jsoniter.Iterator) error {
+	r.ReadArrayCB(func(r *jsoniter.Iterator) bool {
+		var e {{ $name }}
+		r.Error = e.UnmarshalDocument(r)
+		*s = append(*s, &e)
+		return true
+	})
+
+	return r.Error
+}
