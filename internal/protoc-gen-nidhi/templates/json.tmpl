@@ -11,18 +11,23 @@ func (doc *{{ $name }}) MarshalDocument(w *jsoniter.Stream) error {
 	first := true
 
 	w.WriteObjectStart()
-{{- range .Fields }}{{- /*gotype: github.com/lyft/protoc-gen-star.Field */ -}}{{- $gtype := . | GoType }}
+{{- range .NonOneOfFields }}{{- /*gotype: github.com/lyft/protoc-gen-star.Field */ -}}{{- $gtype := . | GoType }}
 {{- if .Type.IsRepeated }}
 {{- if .Type.Element.IsEmbed }}
     first = nidhigen.WriteMarshaler(w, "{{ .Name | LowerCamel }}",  {{ $gtype.Element.Value }}Slice(doc.{{ . | Name }}), first)
 {{- else }}
-    first = nidhigen.Write{{ $gtype.Element | Capitalise }}(w, "{{ .Name | LowerCamel }}", doc.{{ . | Name }}, first)
-{{ end }}
+    first = nidhigen.Write{{ $gtype.Element | Capitalise }}Slice(w, "{{ .Name | LowerCamel }}", doc.{{ . | Name }}, first)
+{{- end }}
 {{- else if .Type.IsEmbed }}
     first = nidhigen.WriteMarshaler(w, "{{ .Name | LowerCamel }}", doc.{{ . | Name }}, first)
-{{- else }}
+{{- else if . | IsBytes }}
+	first = nidhigen.WriteBytes(w, "{{ .Name | LowerCamel }}", doc.{{ . | Name }}, first)
+{{ else }}
     first = nidhigen.Write{{ $gtype | Capitalise }}(w, "{{ .Name | LowerCamel }}", doc.{{ . | Name }}, first)
 {{- end }}
+{{- end }}
+{{- range .OneOfs }}
+	first = nidhigen.WriteOneOf(w, doc.{{ . | Name }}, first)
 {{- end }}
 	w.WriteObjectEnd()
 
@@ -36,25 +41,17 @@ func (doc *{{ $name }}) UnmarshalDocument(r *jsoniter.Iterator) error {
 
 	r.ReadObjectCB(func(r *jsoniter.Iterator, field string) bool {
 		switch field {
-{{- range .Fields }}{{- /*gotype: github.com/lyft/protoc-gen-star.Field */ -}}{{- $gtype := . | GoType }}{{ $fa := printf "%s%s" "doc." (. | Name) }}
+{{- range .NonOneOfFields }}{{- /*gotype: github.com/lyft/protoc-gen-star.Field */ -}}
         case "{{ .Name | LowerCamel }}":
-        {{- if .Type.IsRepeated }}
-            {{$fa}} = {{ $gtype }}{}
-            {{- if .Type.Element.IsEmbed }}
-            r.Error = (*{{ $gtype.Element.Value }}Slice)(&{{$fa}}).UnmarshalDocument(r)
-            {{- else }}
-            r.ReadArrayCB(func(r *jsoniter.Iterator) bool {
-                e := r.Read{{ $gtype.Element | Capitalise }}()
-                {{$fa}} = append({{$fa}}, e)
-                return true
-	        })
-            {{- end }}
-        {{- else if .Type.IsEmbed }}
-            {{$fa}} = &{{$gtype.Value}}{}
-            r.Error = {{$fa}}.UnmarshalDocument(r)
-        {{- else }}
-            {{$fa}} = r.Read{{ $gtype | Capitalise }}()
-        {{- end }}
+        {{- template "unmarshal" . }}
+{{- end }}
+{{- range .OneOfs }}{{- /*gotype: github.com/lyft/protoc-gen-star.OneOf */ -}}{{- $ofa := printf "%s%s" "doc." (. | Name) }}
+{{ range .Fields }}{{- /*gotype: github.com/lyft/protoc-gen-star.Field */ -}}{{- $name := . | OneOfOption }}
+		case "{{ .Name | LowerCamel }}":
+			var f {{ $name }}
+			{{- template "unmarshal" . }}
+			{{ $ofa }} = &f
+{{- end }}
 {{- end }}
 		default:
 			r.Skip()
@@ -64,6 +61,28 @@ func (doc *{{ $name }}) UnmarshalDocument(r *jsoniter.Iterator) error {
 
 	return r.Error
 }
+
+{{- range .OneOfs }}{{- /* gotype: github.com/lyft/protoc-gen-star.OneOf */ -}}
+{{ range .Fields }}{{- /*gotype: github.com/lyft/protoc-gen-star.Field */ -}}{{- $name := . | OneOfOption }}{{- $gtype := . | GoType }}
+
+func (of *{{ $name }}) MarshalDocument(w *jsoniter.Stream) error {
+{{- if .Type.IsRepeated }}
+	{{- if .Type.Element.IsEmbed }}
+		nidhigen.WriteMarshaler(w, "{{ .Name | LowerCamel }}",  {{ $gtype.Element.Value }}Slice(of.{{ . | Name }}), true)
+	{{- else }}
+		nidhigen.Write{{ $gtype.Element | Capitalise }}Slice(w, "{{ .Name | LowerCamel }}", of.{{ . | Name }}, true)
+	{{- end }}
+{{- else if .Type.IsEmbed }}
+	nidhigen.WriteMarshaler(w, "{{ .Name | LowerCamel }}", of.{{ . | Name }}, true)
+{{- else if . | IsBytes }}
+	nidhigen.WriteBytes(w, "{{ .Name | LowerCamel }}", of.{{ . | Name }}, true)
+{{ else }}
+	nidhigen.Write{{ $gtype | Capitalise }}(w, "{{ .Name | LowerCamel }}", of.{{ . | Name }}, true)
+{{- end }}
+	return w.Error
+}
+{{- end }}
+{{- end }}
 
 type {{ $name }}Slice []*{{ $name }}
 
@@ -95,3 +114,26 @@ func (s *{{ $name }}Slice) UnmarshalDocument(r *jsoniter.Iterator) error {
 
 	return r.Error
 }
+
+{{ define "unmarshal" }}{{- /*gotype: github.com/lyft/protoc-gen-star.Field */ -}}{{- $gtype := . | GoType }}{{ $fa := printf "%s%s" "doc." (. | Name) }}
+	{{- if .InOneOf }}{{ $fa = printf "%s%s" "f." (. | Name) }}{{- end}}
+	{{- if .Type.IsRepeated }}
+		{{$fa}} = {{ $gtype }}{}
+		{{- if .Type.Element.IsEmbed }}
+			r.Error = (*{{ $gtype.Element.Value }}Slice)(&{{$fa}}).UnmarshalDocument(r)
+		{{- else }}
+			r.ReadArrayCB(func(r *jsoniter.Iterator) bool {
+				e := r.Read{{ $gtype.Element | Capitalise }}()
+				{{$fa}} = append({{$fa}}, e)
+				return true
+			})
+		{{- end }}
+	{{- else if .Type.IsEmbed }}
+		{{$fa}} = &{{$gtype.Value}}{}
+		r.Error = {{$fa}}.UnmarshalDocument(r)
+	{{- else if . | IsBytes }}
+		{{$fa}} = r.ReadStringAsSlice()
+	{{- else }}
+		{{$fa}} = r.Read{{ $gtype | Capitalise }}()
+	{{- end }}
+{{ end }}

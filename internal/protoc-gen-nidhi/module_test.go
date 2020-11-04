@@ -2,17 +2,21 @@ package pgn_test
 
 import (
 	"bytes"
-	"fmt"
+	"flag"
+	"io"
+	"io/ioutil"
 	"os"
 	"testing"
 
-	"github.com/golang/protobuf/proto"
 	pgs "github.com/lyft/protoc-gen-star"
 	pgsgo "github.com/lyft/protoc-gen-star/lang/go"
 	"github.com/spf13/afero"
 
-	plugin_go "github.com/golang/protobuf/protoc-gen-go/plugin"
 	pgn "github.com/srikrsna/nidhi/internal/protoc-gen-nidhi"
+)
+
+var (
+	update = flag.Bool("update", false, "True will replace the golden files output with latest output")
 )
 
 func TestModule(t *testing.T) {
@@ -20,6 +24,7 @@ func TestModule(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer req.Close()
 
 	fs := afero.NewMemMapFs()
 
@@ -30,10 +35,24 @@ func TestModule(t *testing.T) {
 		pgs.FileSystem(fs),
 	).RegisterModule(pgn.New()).RegisterPostProcessor(pgsgo.GoFmt()).Render()
 
-	var res plugin_go.CodeGeneratorResponse
-	if err := proto.Unmarshal(out.Bytes(), &res); err != nil {
-		t.Fatal(err)
-	}
+	if *update {
+		res, err := os.Create("./test_data/code_generator_response.pb.bin")
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer res.Close()
 
-	fmt.Print(&res)
+		if _, err := io.Copy(res, &out); err != nil {
+			t.Error(err)
+		}
+	} else {
+		exp, err := ioutil.ReadFile("./test_data/code_generator_response.pb.bin")
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if !bytes.Equal(exp, out.Bytes()) {
+			t.Fatal("Output mismatch")
+		}
+	}
 }

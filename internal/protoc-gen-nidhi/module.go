@@ -42,8 +42,10 @@ func (m *Module) InitContext(c pgs.BuildContext) {
 			return f.Type().ProtoType() == pgs.StringT
 		},
 		"IsBool": func(f pgs.Field) bool {
-			f.Type().Embed()
 			return f.Type().ProtoType() == pgs.BoolT
+		},
+		"IsBytes": func(f pgs.Field) bool {
+			return f.Type().ProtoType() == pgs.BytesT
 		},
 		"Fields": func(msg pgs.Message) string {
 			var ff string
@@ -52,6 +54,9 @@ func (m *Module) InitContext(c pgs.BuildContext) {
 			}
 
 			return ff
+		},
+		"OneOfOption": func(f pgs.Field) pgs.Name {
+			return m.goContext.OneofOption(f)
 		},
 		"GoType": func(f pgs.Field) pgsgo.TypeName {
 			return m.goContext.Type(f)
@@ -142,6 +147,10 @@ func (m *Module) generateMarshaler(msg pgs.Message, generated, headersWritten ma
 	if !headersWritten[name] {
 		m.AddGeneratorTemplateFile(name, m.tpl.Lookup("header"), msg.File())
 		headersWritten[name] = true
+	}
+
+	if generated[msg.FullyQualifiedName()] {
+		return
 	}
 
 	m.AddGeneratorTemplateAppend(name, m.tpl.Lookup("json"), msg)
