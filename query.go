@@ -293,13 +293,62 @@ func (t *TimeQuery) ToQuery(name string, sb io.StringWriter, args *[]interface{}
 }
 
 type SliceQuery struct {
-	Slice interface{}
+	Slice   interface{}
+	Options SliceOptions
 }
 
-func (f *SliceQuery) ToQuery(name string, w io.StringWriter, args *[]interface{}) error {
-	w.WriteString(name)
-	w.WriteString(" @> ?")
-	*args = append(*args, pg.Array(f.Slice))
+func (s *SliceQuery) ToQuery(name string, sb io.StringWriter, args *[]interface{}) error {
+	first := true
+	wc := func(sym string) {
+		if !first {
+			sb.WriteString(" AND")
+		}
+		first = false
+		sb.WriteString(" ")
+		sb.WriteString(name)
+		sb.WriteString(" " + sym + " ?")
+		*args = append(*args, pg.Array(s.Slice))
+	}
+	if s.Options.Eq != nil {
+		wc("=")
+	}
+
+	if s.Options.Neq != nil {
+		wc("<>")
+	}
+
+	if s.Options.Lte != nil {
+		wc("<=")
+	}
+
+	if s.Options.Gte != nil {
+		wc(">=")
+	}
+
+	if s.Options.Lt != nil {
+		wc("<")
+	}
+
+	if s.Options.Gt != nil {
+		wc(">")
+	}
+
+	if s.Options.Ct != nil {
+		wc("@>")
+	}
+
+	if s.Options.Ctb != nil {
+		wc("<@")
+	}
+
+	if s.Options.Ovl != nil {
+		wc("&&")
+	}
+
+	if first {
+		return fmt.Errorf("nidhi: int filter %q not set", name)
+	}
+
 	return nil
 }
 
@@ -312,6 +361,11 @@ func (f MarshalerQuery) ToQuery(name string, w io.StringWriter, args *[]interfac
 	w.WriteString(" @> ?")
 	*args = append(*args, JSONB(NoopUnmarshaler(f)))
 	return nil
+}
+
+type SliceOptions struct {
+	// Equal (=), Not Equal (<>), Less than (<), Greater Than (>), Less than Equal (<=), Greater Than Equal (>=), Contains (@>), Contained By (<@), Overlap (&&)
+	Eq, Neq, Lt, Gt, Lte, Gte, Ct, Ctb, Ovl *struct{}
 }
 
 func String(s string) *string {
@@ -344,4 +398,10 @@ func Bool(b bool) *bool {
 
 func Time(t time.Time) *time.Time {
 	return &t
+}
+
+var marker = &struct{}{}
+
+func Struct() *struct{} {
+	return marker
 }

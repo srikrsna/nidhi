@@ -278,7 +278,7 @@ func (c *collection) Query(ctx context.Context, f Sqlizer, ctr func() Document, 
 	return nil
 }
 
-func (c *collection) Get(ctx context.Context, id string, doc Document, ops []GetOption) error {
+func (c *collection) Get(ctx context.Context, id string, doc Unmarshaler, ops []GetOption) error {
 	var gop GetOptions
 	for _, op := range ops {
 		op(&gop)

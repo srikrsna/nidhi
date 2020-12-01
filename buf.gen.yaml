@@ -6,3 +6,6 @@ plugins:
   - name: nidhi
     out: .
     opt: paths=source_relative
+  - name: fuzz
+    out: .
+    opt: paths=source_relative

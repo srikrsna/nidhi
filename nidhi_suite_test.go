@@ -7,6 +7,7 @@ import (
 	jsoniter "github.com/json-iterator/go"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+
 	"github.com/srikrsna/nidhi"
 )
 
@@ -86,47 +87,47 @@ func newTestQuery() *testQuery {
 	return (*testQuery)(nidhi.GetQuery())
 }
 
-func (q *testQuery) query() *nidhi.Query {
+func (q *testQuery) q() *nidhi.Query {
 	return (*nidhi.Query)(q)
 }
 
 func (q *testQuery) Id(f *nidhi.StringQuery) testConjuction {
-	q.query().Id(f)
+	q.q().Id(f)
 	return q
 }
 
 func (q *testQuery) Number(f *nidhi.IntQuery) testConjuction {
-	q.query().Field("->'Number'", f)
+	q.q().Field("->'Number'", f)
 	return q
 }
 
 func (q *testQuery) Where(query string, args ...interface{}) testConjuction {
-	q.query().Where(query, args...)
+	q.q().Where(query, args...)
 	return q
 }
 
 func (q *testQuery) Not() *testQuery {
-	q.query().Not()
+	q.q().Not()
 	return q
 }
 
 func (q *testQuery) Paren(iq *testQuery) testConjuction {
-	q.query().Paren(iq)
+	q.q().Paren(iq)
 	return q
 }
 
 func (q *testQuery) And() *testQuery {
-	q.query().And()
+	q.q().And()
 	return q
 }
 
 func (q *testQuery) Or() *testQuery {
-	q.query().Or()
+	q.q().Or()
 	return q
 }
 
 func (q *testQuery) ToSql() (string, []interface{}, error) {
-	return q.query().ToSql()
+	return q.q().ToSql()
 }
 
 type testConjuction interface {
@@ -137,5 +138,5 @@ type testConjuction interface {
 }
 
 func (q *testQuery) Reset() {
-	q.query().Reset()
+	q.q().Reset()
 }

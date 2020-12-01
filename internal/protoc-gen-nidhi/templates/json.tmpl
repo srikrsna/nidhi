@@ -68,16 +68,16 @@ func (doc *{{ $name }}) UnmarshalDocument(r *jsoniter.Iterator) error {
 func (of *{{ $name }}) MarshalDocument(w *jsoniter.Stream) error {
 {{- if .Type.IsRepeated }}
 	{{- if .Type.Element.IsEmbed }}
-		nidhigen.WriteMarshaler(w, "{{ .Name | LowerCamel }}",  {{ $gtype.Element.Value }}Slice(of.{{ . | Name }}), true)
+		nidhigen.WriteMarshalerOneOf(w, "{{ .Name | LowerCamel }}",  {{ $gtype.Element.Value }}Slice(of.{{ . | Name }}))
 	{{- else }}
-		nidhigen.Write{{ $gtype.Element | Capitalise }}Slice(w, "{{ .Name | LowerCamel }}", of.{{ . | Name }}, true)
+		nidhigen.Write{{ $gtype.Element | Capitalise }}SliceOneOf(w, "{{ .Name | LowerCamel }}", of.{{ . | Name }})
 	{{- end }}
 {{- else if .Type.IsEmbed }}
-	nidhigen.WriteMarshaler(w, "{{ .Name | LowerCamel }}", of.{{ . | Name }}, true)
+	nidhigen.WriteMarshalerOneOf(w, "{{ .Name | LowerCamel }}", of.{{ . | Name }})
 {{- else if . | IsBytes }}
-	nidhigen.WriteBytes(w, "{{ .Name | LowerCamel }}", of.{{ . | Name }}, true)
+	nidhigen.WriteBytesOneOf(w, "{{ .Name | LowerCamel }}", of.{{ . | Name }})
 {{ else }}
-	nidhigen.Write{{ $gtype | Capitalise }}(w, "{{ .Name | LowerCamel }}", of.{{ . | Name }}, true)
+	nidhigen.Write{{ $gtype | Capitalise }}OneOf(w, "{{ .Name | LowerCamel }}", of.{{ . | Name }})
 {{- end }}
 	return w.Error
 }
@@ -132,7 +132,7 @@ func (s *{{ $name }}Slice) UnmarshalDocument(r *jsoniter.Iterator) error {
 		{{$fa}} = &{{$gtype.Value}}{}
 		r.Error = {{$fa}}.UnmarshalDocument(r)
 	{{- else if . | IsBytes }}
-		{{$fa}} = r.ReadStringAsSlice()
+		{{$fa}} = []byte(r.ReadString())
 	{{- else }}
 		{{$fa}} = r.Read{{ $gtype | Capitalise }}()
 	{{- end }}

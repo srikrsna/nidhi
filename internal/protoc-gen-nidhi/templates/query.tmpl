@@ -1,6 +1,6 @@
 {{- /*gotype: github.com/srikrsna/pkg/protoc-gen-nidhi.Root*/ -}}
 {{ $name := .Message | Name }}
-{{ $lowerName := .Message.Name | LowerCamel }}
+{{ $lowerName := printf "%s%s" "imp_" .Message.Name  }}
 func Get{{ $name }}Query() {{ $name }}Query {
 	return (*{{ $lowerName }}Query)(nidhi.GetQuery())
 }
@@ -19,9 +19,8 @@ type {{ $name }}Query interface {
 	{{ . | Name }}(*nidhi.StringQuery) {{ $name }}Conj
 {{- else if . | IsBool }}
 	{{ . | Name }}(*nidhi.BoolQuery) {{ $name }}Conj
-{{- else if .Type.IsRepeated }}
-{{- $gtype := . | GoType }}
-	{{ . | Name }}(...{{ $gtype.Element }}) {{ $name }}Conj
+{{- else if .Type.IsRepeated }}{{- $gtype := . | GoType }}
+	{{ . | Name }}({{ with not .Type.Element.IsEmbed }}nidhi.SliceOptions,{{ end }} ...{{ $gtype.Element }}) {{ $name }}Conj
 {{- else if .Type.IsEmbed }}
 	{{ . | Name }}() {{ $name }}{{ . | Name }}Query
 {{- end }}
@@ -57,35 +56,44 @@ func (q *{{ $lowerName }}Query) Id(f *nidhi.StringQuery) {{ $name }}Conj {
 {{- range .Fields -}}
 	{{- if .Type.ProtoType.IsInt }}
 func (q *{{ $lowerName }}Query) {{ . | Name }}(f *nidhi.IntQuery) {{ $name }}Conj {
-	(*nidhi.Query)(q).Field(" "+nidhi.ColDoc+"->'{{ .Name | LowerCamel }}'", f)
+	(*nidhi.Query)(q).Field(" ("+nidhi.ColDoc+"->'{{ .Name | LowerCamel }}')::bigint", f)
 	return q
 }
 	{{ else if .Type.ProtoType.IsNumeric }}
 func (q *{{ $lowerName }}Query) {{ . | Name }}(f *nidhi.FloatQuery) {{ $name }}Conj {
-	(*nidhi.Query)(q).Field(" "+nidhi.ColDoc+"->'{{ .Name | LowerCamel }}'", f)
+	(*nidhi.Query)(q).Field(" ("+nidhi.ColDoc+"->'{{ .Name | LowerCamel }}')::double precision", f)
 	return q
 }
 	{{ else if and (. | IsString) (ne .Name.String "id") }}
 func (q *{{ $lowerName }}Query) {{ . | Name }}(f *nidhi.StringQuery) {{ $name }}Conj {
-	(*nidhi.Query)(q).Field(" "+nidhi.ColDoc+"->'{{ .Name | LowerCamel }}'", f)
+	(*nidhi.Query)(q).Field(" "+nidhi.ColDoc+"->>'{{ .Name | LowerCamel }}'", f)
 	return q
 }
 	{{ else if . | IsBool }}
 func (q *{{ $lowerName }}Query) {{ . | Name }}(f *nidhi.BoolQuery) {{ $name }}Conj {
-	(*nidhi.Query)(q).Field(" "+nidhi.ColDoc+"->'{{ .Name | LowerCamel }}'", f)
+	(*nidhi.Query)(q).Field(" ("+nidhi.ColDoc+"->'{{ .Name | LowerCamel }}')::bool", f)
 	return q
 }
-	{{ else if .Type.IsRepeated }}
-		{{- $gtype := . | GoType }}
-func (q *{{ $lowerName }}Query) {{ . | Name }}(arr ...{{ $gtype.Element }}) {{ $name }}Conj {
-	(*nidhi.Query)(q).Field(" "+nidhi.ColDoc+"->'{{ .Name | LowerCamel }}'", nidhi.MarshalerQuery{
-		Marshaler: {{ $gtype.Element.Value }}Slice(arr),
-	})
+	{{ else if .Type.IsRepeated }}{{- $gtype := . | GoType }}
+func (q *{{ $lowerName }}Query) {{ . | Name }}({{ with not .Type.Element.IsEmbed }}opt nidhi.SliceOptions,{{ end }} arr ...{{ $gtype.Element }}) {{ $name }}Conj {
+	(*nidhi.Query)(q).Field(
+		" "+nidhi.ColDoc+"->'{{ .Name | LowerCamel }}'",
+		{{- if .Type.Element.IsEmbed }}
+		nidhi.MarshalerQuery{
+			Marshaler: {{ $gtype.Element.Value }}Slice(arr),
+		}
+		{{- else }}
+		&nidhi.SliceQuery{
+			Slice: arr,
+			Options: opt,
+		}
+		{{- end }},
+	)
 	return q
 }
 	{{ else if .Type.IsEmbed }}
 func (q *{{ $lowerName }}Query) {{ . | Name }}() {{ $name }}{{ . | Name }}Query {
-	(*nidhi.Query)(q).Prefix(" " + nidhi.ColDoc + "->>'{{ .Name | LowerCamel }}'")
+	(*nidhi.Query)(q).Prefix(" (" + nidhi.ColDoc + "->'{{ .Name | LowerCamel }}'")
 	return (*{{ $lowerName }}{{ . | Name }}Query)(q)
 }
 	{{- end }}

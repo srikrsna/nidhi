@@ -99,3 +99,7 @@ func (st *{{ $lowerName }}Collection) Get{{ $name }}(ctx context.Context, id str
 func (st *{{ $lowerName }}Collection) Update{{ $name }}s(ctx context.Context, b *{{ $name }}, f is{{ $name }}Query, ops ...nidhi.UpdateOption) error {
 	return st.col.Update(ctx, b, f, ops)
 }
+
+func (st *{{ $lowerName }}Collection) Delete{{ $name }}s(ctx context.Context, f is{{ $name }}Query, ops ...nidhi.DeleteOption) error {
+	return st.col.DeleteMany(ctx, f, ops)
+}

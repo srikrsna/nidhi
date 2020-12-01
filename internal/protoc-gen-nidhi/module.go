@@ -7,7 +7,7 @@ import (
 	"strings"
 	"text/template"
 
-	pluralize "github.com/gertd/go-pluralize"
+	"github.com/gertd/go-pluralize"
 	pgs "github.com/lyft/protoc-gen-star"
 	pgsgo "github.com/lyft/protoc-gen-star/lang/go"
 	"github.com/markbates/pkger"
@@ -39,13 +39,13 @@ func (m *Module) InitContext(c pgs.BuildContext) {
 		"LowerCamel": func(n pgs.Name) pgs.Name { return n.LowerCamelCase() },
 		"Plural":     func(n pgs.Name) string { return pc.Plural(n.String()) },
 		"IsString": func(f pgs.Field) bool {
-			return f.Type().ProtoType() == pgs.StringT
+			return !f.Type().IsRepeated() && f.Type().ProtoType() == pgs.StringT
 		},
 		"IsBool": func(f pgs.Field) bool {
-			return f.Type().ProtoType() == pgs.BoolT
+			return !f.Type().IsRepeated() && f.Type().ProtoType() == pgs.BoolT
 		},
 		"IsBytes": func(f pgs.Field) bool {
-			return f.Type().ProtoType() == pgs.BytesT
+			return !f.Type().IsRepeated() && f.Type().ProtoType() == pgs.BytesT
 		},
 		"Fields": func(msg pgs.Message) string {
 			var ff string
@@ -133,7 +133,7 @@ func (m *Module) generateSubQuery(name string, root, msg pgs.Message, parent pgs
 
 		m.AddGeneratorTemplateAppend(name, m.tpl.Lookup("sub-query"), SubRoot{root, parent, f})
 
-		m.generateSubQuery(name, root, f.Type().Embed(), parent+f.Name())
+		m.generateSubQuery(name, root, f.Type().Embed(), parent.UpperCamelCase()+f.Name().UpperCamelCase())
 	}
 }
 
