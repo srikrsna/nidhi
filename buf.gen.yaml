@@ -1,0 +1,11 @@
+version: v1beta1
+plugins:
+  - name: go
+    out: .
+    opt: paths=source_relative
+  - name: nidhi
+    out: .
+    opt: paths=source_relative
+  - name: fuzz
+    out: .
+    opt: paths=source_relative

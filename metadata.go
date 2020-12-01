@@ -69,7 +69,7 @@ func (doc *Metadata) MarshalDocument(w *jsoniter.Stream) error {
 
 	if doc.Created != nil {
 		w.WriteObjectField("created")
-		doc.Created.MarshalDocument(w)
+		_ = doc.Created.MarshalDocument(w)
 	}
 
 	if doc.Updated != nil {
@@ -77,7 +77,7 @@ func (doc *Metadata) MarshalDocument(w *jsoniter.Stream) error {
 			w.WriteMore()
 		}
 		w.WriteObjectField("updated")
-		doc.Updated.MarshalDocument(w)
+		_ = doc.Updated.MarshalDocument(w)
 	}
 
 	if doc.Deleted != nil {
@@ -85,7 +85,7 @@ func (doc *Metadata) MarshalDocument(w *jsoniter.Stream) error {
 			w.WriteMore()
 		}
 		w.WriteObjectField("deleted")
-		doc.Deleted.MarshalDocument(w)
+		_ = doc.Deleted.MarshalDocument(w)
 	}
 
 	w.WriteObjectEnd()
@@ -102,13 +102,13 @@ func (doc *Metadata) UnmarshalDocument(r *jsoniter.Iterator) error {
 		switch field {
 		case "created":
 			doc.Created = &ActivityLog{}
-			doc.Created.UnmarshalDocument(r)
+			_ = doc.Created.UnmarshalDocument(r)
 		case "updated":
 			doc.Updated = &ActivityLog{}
-			doc.Updated.UnmarshalDocument(r)
+			_ = doc.Updated.UnmarshalDocument(r)
 		case "deleted":
 			doc.Deleted = &ActivityLog{}
-			doc.Deleted.UnmarshalDocument(r)
+			_ = doc.Deleted.UnmarshalDocument(r)
 		default:
 			r.Skip()
 		}

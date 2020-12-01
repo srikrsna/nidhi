@@ -1,0 +1,12 @@
+syntax = "proto3";
+
+package nidhi;
+
+option go_package = "github.com/srikrsna/nidhi/nidhi";
+
+import "google/protobuf/descriptor.proto";
+
+extend google.protobuf.MessageOptions {
+  // Prefix marks this message as root object for code generation.
+  string prefix = 20429;
+}

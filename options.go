@@ -57,12 +57,11 @@ func WithPaginationOptions(po *PaginationOptions) QueryOption {
 }
 
 type PaginationOptions struct {
-	Backward bool
 	Cursor   string
 	Limit    uint64
-
+	Backward bool
 	// Will be set by Nidhi
-	HasMore bool
+	HasMore  bool
 }
 
 type GetOptions struct {

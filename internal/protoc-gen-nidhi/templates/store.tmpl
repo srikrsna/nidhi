@@ -1,0 +1,105 @@
+
+{{ $name := .Message | Name -}}
+{{ $lowerName := .Message.Name | LowerCamel -}}
+
+func (doc *{{ $name }}) DocumentId() string {
+	return doc.Id
+}
+
+func (doc *{{ $name }}) SetDocumentId(id string)  {
+	doc.Id = id
+}
+
+type {{ $name }}Collection struct {
+	*{{ $lowerName }}Collection
+
+	ogCol *nidhi.Collection
+}
+
+func Open{{ $name }}Collection(ctx context.Context, db *sql.DB) (*{{ $name }}Collection, error) {
+	col, err := nidhi.OpenCollection(ctx, db, "{{ .Package | Name }}", "{{ $lowerName | Plural }}", nidhi.CollectionOptions{
+		Fields: []string{ {{ . | Fields }} },
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &{{ $name }}Collection{
+		&{{ $lowerName }}Collection{col: col},
+		col,
+	}, nil
+}
+
+func (st *{{ $name }}Collection) BeginTx(ctx context.Context, opt *sql.TxOptions) (*{{ $name }}TxCollection, error) {
+	txCol, err := st.ogCol.BeginTx(ctx, opt)
+	if err != nil {
+		return nil, err
+	}
+
+	return &{{ $name }}TxCollection{&{{ $lowerName }}Collection{txCol}, txCol}, nil
+}
+
+func (st *{{ $name }}Collection) WithTransaction(tx *nidhi.TxToken) *{{ $name }}TxCollection {
+	txCol := st.ogCol.WithTransaction(tx)
+	return &{{ $name }}TxCollection{&{{ $lowerName }}Collection{txCol}, txCol}
+}
+
+type {{ $name }}TxCollection struct {
+	*{{ $lowerName }}Collection
+	txCol *nidhi.TxCollection
+}
+
+func (tx *{{ $name }}TxCollection) Rollback() error {
+	return tx.txCol.Rollback()
+}
+
+func (tx *{{ $name }}TxCollection) Commit() error {
+	return tx.txCol.Commit()
+}
+
+func (tx *{{ $name }}TxCollection) TxToken() *nidhi.TxToken {
+	return nidhi.NewTxToken(tx.txCol)
+}
+
+type {{ $lowerName }}Collection struct {
+	col nidhigen.Collection
+}
+
+func (st *{{ $lowerName }}Collection) Create{{ $name }}(ctx context.Context, b *{{ $name }}, ops ...nidhi.CreateOption) (string, error) {
+	return st.col.Create(ctx, b, ops)
+}
+
+func (st *{{ $lowerName }}Collection) Query{{ $name }}s(ctx context.Context, f is{{ $name }}Query, ops ...nidhi.QueryOption) ([]*{{ $name }}, error) {
+	var ee []*{{ $name }}
+	ctr := func() nidhi.Document {
+		var e {{ $name }}
+		ee = append(ee, &e)
+		return &e
+	}
+
+	return ee, st.col.Query(ctx, f, ctr, ops)
+}
+
+func (st *{{ $lowerName }}Collection) Replace{{ $name }}(ctx context.Context, b *{{ $name }}, ops ...nidhi.ReplaceOption) error {
+	return st.col.Replace(ctx, b, ops)
+}
+
+func (st *{{ $lowerName }}Collection) Delete{{ $name }}(ctx context.Context, id string, ops ...nidhi.DeleteOption) error {
+	return st.col.Delete(ctx, id, ops)
+}
+
+func (st *{{ $lowerName }}Collection) Count{{ $name }}s(ctx context.Context, f is{{ $name }}Query, ops ...nidhi.CountOption) (int64, error) {
+	return st.col.Count(ctx, f, ops)
+}
+
+func (st *{{ $lowerName }}Collection) Get{{ $name }}(ctx context.Context, id string, ops ...nidhi.GetOption) (*{{ $name }}, error) {
+	var entity {{ $name }}
+	return &entity, st.col.Get(ctx, id, &entity, ops)
+}
+
+func (st *{{ $lowerName }}Collection) Update{{ $name }}s(ctx context.Context, b *{{ $name }}, f is{{ $name }}Query, ops ...nidhi.UpdateOption) error {
+	return st.col.Update(ctx, b, f, ops)
+}
+
+func (st *{{ $lowerName }}Collection) Delete{{ $name }}s(ctx context.Context, f is{{ $name }}Query, ops ...nidhi.DeleteOption) error {
+	return st.col.DeleteMany(ctx, f, ops)
+}

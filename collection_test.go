@@ -9,8 +9,9 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/srikrsna/nidhi"
 	"gocloud.dev/postgres"
+
+	"github.com/srikrsna/nidhi"
 )
 
 var _ = Describe("Collection", func() {
