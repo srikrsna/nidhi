@@ -7,6 +7,7 @@ import (
 	"math/rand"
 	"reflect"
 	"sort"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -79,13 +80,13 @@ func TestQuery(t *testing.T) {
 }
 
 func TestJson(t *testing.T) {
-	fz := fuzz.New().Funcs(pbf.FuzzFuncs()...)
+	fz := fuzz.New().Funcs(pbf.FuzzFuncs()...).NilChance(.5).NumElements(0, 70)
 	cfg := jsoniter.Config{
 		IndentionStep: 4,
 	}.Froze()
 	stream := cfg.BorrowStream(nil)
 	iterator := cfg.BorrowIterator(nil)
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 10000; i++ {
 		stream.Reset(nil)
 
 		var doc pb.All
@@ -152,11 +153,9 @@ var _ = Describe("Collection", func() {
 		})
 
 		It("should get a partial document by it's id", func() {
-			act, err := col.GetAll(ctx, doc.Id, nidhi.WithGetOptions(nidhi.GetOptions{ViewMask: []string{"stringField"}}))
-			Expect(err).To(BeNil())
 			exp := &pb.All{}
 			exp.StringField = doc.StringField
-			Expect(proto.Equal(act, exp)).To(BeTrue())
+			Expect(col.GetAll(ctx, doc.Id, nidhi.WithGetOptions(nidhi.GetOptions{ViewMask: []string{"stringField"}}))).To(ProtoEqual(exp))
 		})
 
 		It("should delete a document by its id", func() {
@@ -175,9 +174,7 @@ var _ = Describe("Collection", func() {
 				exp := proto.Clone(&doc).(*pb.All)
 				exp.Int32Field = doc.Int32Field + 1
 				Expect(col.CreateAll(ctx, exp, nidhi.WithCreateOptions(nidhi.CreateOptions{Replace: true}))).To(Equal(doc.Id))
-				act, err := col.GetAll(ctx, exp.Id)
-				Expect(err).To(BeNil())
-				Expect(proto.Equal(act, exp)).To(BeTrue())
+				Expect(col.GetAll(ctx, exp.Id)).To(ProtoEqual(exp))
 			})
 		})
 
@@ -185,9 +182,7 @@ var _ = Describe("Collection", func() {
 			exp := proto.Clone(&doc).(*pb.All)
 			exp.Int32Field = doc.Int32Field + 2
 			Expect(col.ReplaceAll(ctx, exp)).To(Succeed())
-			act, err := col.GetAll(ctx, exp.Id)
-			Expect(err).To(BeNil())
-			Expect(proto.Equal(act, exp)).To(BeTrue())
+			Expect(col.GetAll(ctx, exp.Id)).To(ProtoEqual(exp))
 		})
 	})
 
@@ -199,18 +194,22 @@ var _ = Describe("Collection", func() {
 		const marker = 5
 
 		BeforeEach(func() {
-			Expect(col.DeleteAlls(ctx, nil, nidhi.WithDeleteOptions(nidhi.DeleteOptions{Permanent: true}))).To(Succeed())
+		loop:
 			docs = make([]*pb.All, 1+(rand.Int()%20))
 			aboveMarker = make([]*pb.All, 0, len(docs))
-
+			Expect(db.Exec(`TRUNCATE TABLE pb.alls;`)).ToNot(BeNil())
 			for i := range docs {
 				var doc pb.All
 				fz.Fuzz(&doc)
+				doc.Id = strconv.Itoa(i)
 				docs[i] = &doc
-				Expect(col.CreateAll(ctx, docs[i], nil)).To(Equal(docs[i].Id))
+				Expect(col.CreateAll(ctx, docs[i])).To(Equal(docs[i].Id))
 				if docs[i].Int32Field > marker {
 					aboveMarker = append(aboveMarker, docs[i])
 				}
+			}
+			if len(aboveMarker) <= 5 {
+				goto loop
 			}
 		})
 
@@ -222,34 +221,33 @@ var _ = Describe("Collection", func() {
 			)
 		}
 
+		qfe := func(exp []*pb.All, opts ...nidhi.QueryOption) {
+			Expect(qf(opts...)).To(AllSliceEqual(exp))
+		}
+
 		It("returns results based on a query", func() {
 			exp := aboveMarker
-			act, err := qf()
-			Expect(err).To(BeNil())
-			Expect(act).To(Equal(exp))
+			qfe(exp)
 		})
 
 		It("returns results with a partial view based on a query", func() {
-			exp := aboveMarker
-			for i := range exp {
-				exp[i].Id = ""
+			exp := make([]*pb.All, 0, len(aboveMarker))
+			for i := range aboveMarker {
+				var e pb.All
+				e.Int32Field = aboveMarker[i].Int32Field
+				exp = append(exp, &e)
 			}
-			act, err := qf(nidhi.WithQueryOptions(nidhi.QueryOptions{ViewMask: []string{"Number"}}))
-			Expect(err).To(BeNil())
-			Expect(act).To(Equal(exp))
+			qfe(exp, nidhi.WithQueryOptions(nidhi.QueryOptions{ViewMask: []string{"int32Field"}}))
 		})
 
 		Context("Pagination", func() {
 
 			It("has more", func() {
 				sort.Sort(byId(aboveMarker))
-				exp := aboveMarker[:len(aboveMarker)-2]
+				exp := aboveMarker[:1]
 				po := &nidhi.PaginationOptions{}
-				po.Limit = uint64(len(exp))
-				po.Cursor = ""
-				act, err := qf(nidhi.WithQueryOptions(nidhi.QueryOptions{PaginationOptions: po}))
-				Expect(err).To(BeNil())
-				Expect(act).To(Equal(exp))
+				po.Limit = 1
+				qfe(exp, nidhi.WithQueryOptions(nidhi.QueryOptions{PaginationOptions: po}))
 				Expect(po.HasMore).To(BeTrue())
 			})
 
@@ -280,7 +278,7 @@ var _ = Describe("Collection", func() {
 					sort.Sort(byId(aboveMarker))
 				}
 
-				Expect(act).To(Equal(aboveMarker))
+				Expect(act).To(AllSliceEqual(aboveMarker))
 			}
 
 			It("Should Paginate forward", func() {
@@ -303,27 +301,29 @@ var _ = Describe("Collection", func() {
 		})
 
 		It("update based on query", func() {
+			q := pb.GetAllQuery().Int32Field(&nidhi.IntQuery{Gt: nidhi.Int64(int64(marker))})
 			Expect(col.UpdateAlls(
 				ctx,
 				&pb.All{
-					Int32Field: -1,
+					FloatField: -1,
 				},
-				pb.GetAllQuery().Int32Field(&nidhi.IntQuery{Gt: nidhi.Int64(int64(marker))}),
-				nil,
+				q,
 			)).To(Succeed())
 
 			act, err := col.QueryAlls(
 				ctx,
-				pb.GetAllQuery().Int32Field(&nidhi.IntQuery{Eq: nidhi.Int64(-1)}),
+				q,
 			)
 			Expect(err).To(BeNil())
 
-			exp := aboveMarker
-			for _, e := range exp {
-				e.Int32Field = -1
+			exp := make([]*pb.All, 0, len(aboveMarker))
+			for _, e := range aboveMarker {
+				a := proto.Clone(e).(*pb.All)
+				a.FloatField = -1
+				exp = append(exp, a)
 			}
 
-			Expect(act).To(Equal(exp))
+			Expect(act).To(AllSliceEqual(exp))
 		})
 
 		//It("count documents based on a query", func() {

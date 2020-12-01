@@ -450,7 +450,7 @@ case "doubleField":
 case "boolField":
 		doc.BoolField = r.ReadBool()
 case "bytesField":
-		doc.BytesField = []byte(r.ReadString())
+		doc.BytesField = nidhigen.ReadByteSlice(r)
 case "primitiveRepeated":
 		doc.PrimitiveRepeated = []string{}
 			r.ReadArrayCB(func(r *jsoniter.Iterator) bool {
@@ -511,7 +511,7 @@ case "nestedOne":
 			doc.OneOf = &f
 		case "bytesOneOf":
 			var f All_BytesOneOf
-		f.BytesOneOf = []byte(r.ReadString())
+		f.BytesOneOf = nidhigen.ReadByteSlice(r)
 
 			doc.OneOf = &f
 		case "simpleObjectOneOf":

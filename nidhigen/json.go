@@ -1,6 +1,9 @@
 package nidhigen
 
 import (
+	"encoding/base64"
+	"reflect"
+
 	jsoniter "github.com/json-iterator/go"
 
 	"github.com/srikrsna/nidhi"
@@ -15,8 +18,7 @@ func WriteString(w *jsoniter.Stream, field, value string, first bool) bool {
 		w.WriteMore()
 	}
 
-	w.WriteObjectField(field)
-	w.WriteString(value)
+	WriteStringOneOf(w, field, value)
 
 	return false
 }
@@ -30,15 +32,7 @@ func WriteStringSlice(w *jsoniter.Stream, field string, value []string, first bo
 		w.WriteMore()
 	}
 
-	w.WriteObjectField(field)
-
-	w.WriteArrayStart()
-	w.WriteString(value[0])
-	for _, v := range value[1:] {
-		w.WriteMore()
-		w.WriteString(v)
-	}
-	w.WriteArrayEnd()
+	WriteStringSliceOneOf(w, field, value)
 
 	return false
 }
@@ -52,8 +46,7 @@ func WriteBool(w *jsoniter.Stream, field string, value, first bool) bool {
 		w.WriteMore()
 	}
 
-	w.WriteObjectField(field)
-	w.WriteBool(value)
+	WriteBoolOneOf(w, field, value)
 
 	return false
 }
@@ -67,30 +60,20 @@ func WriteBoolSlice(w *jsoniter.Stream, field string, value []bool, first bool) 
 		w.WriteMore()
 	}
 
-	w.WriteObjectField(field)
-
-	w.WriteArrayStart()
-	w.WriteBool(value[0])
-	for _, v := range value[1:] {
-		w.WriteMore()
-		w.WriteBool(v)
-	}
-	w.WriteArrayEnd()
-
+	WriteBoolSliceOneOf(w, field, value)
 	return false
 }
 
 func WriteUint32(w *jsoniter.Stream, field string, value uint32, first bool) bool {
 	if value == 0 {
-		return false
+		return first
 	}
 
 	if !first {
 		w.WriteMore()
 	}
 
-	w.WriteObjectField(field)
-	w.WriteUint32(value)
+	WriteUint32OneOf(w, field, value)
 
 	return false
 }
@@ -104,30 +87,21 @@ func WriteUint32Slice(w *jsoniter.Stream, field string, value []uint32, first bo
 		w.WriteMore()
 	}
 
-	w.WriteObjectField(field)
-
-	w.WriteArrayStart()
-	w.WriteUint32(value[0])
-	for _, v := range value[1:] {
-		w.WriteMore()
-		w.WriteUint32(v)
-	}
-	w.WriteArrayEnd()
+	WriteUint32SliceOneOf(w, field, value)
 
 	return false
 }
 
 func WriteUint64(w *jsoniter.Stream, field string, value uint64, first bool) bool {
 	if value == 0 {
-		return false
+		return first
 	}
 
 	if !first {
 		w.WriteMore()
 	}
 
-	w.WriteObjectField(field)
-	w.WriteUint64(value)
+	WriteUint64OneOf(w, field, value)
 
 	return false
 }
@@ -141,30 +115,21 @@ func WriteUint64Slice(w *jsoniter.Stream, field string, value []uint64, first bo
 		w.WriteMore()
 	}
 
-	w.WriteObjectField(field)
-
-	w.WriteArrayStart()
-	w.WriteUint64(value[0])
-	for _, v := range value[1:] {
-		w.WriteMore()
-		w.WriteUint64(v)
-	}
-	w.WriteArrayEnd()
+	WriteUint64SliceOneOf(w, field, value)
 
 	return false
 }
 
 func WriteInt(w *jsoniter.Stream, field string, value int, first bool) bool {
 	if value == 0 {
-		return false
+		return first
 	}
 
 	if !first {
 		w.WriteMore()
 	}
 
-	w.WriteObjectField(field)
-	w.WriteInt(value)
+	WriteIntOneOf(w, field, value)
 
 	return false
 }
@@ -178,15 +143,7 @@ func WriteIntSlice(w *jsoniter.Stream, field string, value []int, first bool) bo
 		w.WriteMore()
 	}
 
-	w.WriteObjectField(field)
-
-	w.WriteArrayStart()
-	w.WriteInt(value[0])
-	for _, v := range value[1:] {
-		w.WriteMore()
-		w.WriteInt(v)
-	}
-	w.WriteArrayEnd()
+	WriteIntSliceOneOf(w, field, value)
 
 	return false
 }
@@ -200,8 +157,7 @@ func WriteFloat32(w *jsoniter.Stream, field string, value float32, first bool) b
 		w.WriteMore()
 	}
 
-	w.WriteObjectField(field)
-	w.WriteFloat32(value)
+	WriteFloat32OneOf(w, field, value)
 
 	return false
 }
@@ -215,15 +171,7 @@ func WriteFloat32Slice(w *jsoniter.Stream, field string, value []float32, first 
 		w.WriteMore()
 	}
 
-	w.WriteObjectField(field)
-
-	w.WriteArrayStart()
-	w.WriteFloat32(value[0])
-	for _, v := range value[1:] {
-		w.WriteMore()
-		w.WriteFloat32(v)
-	}
-	w.WriteArrayEnd()
+	WriteFloat32SliceOneOf(w, field, value)
 
 	return false
 }
@@ -237,8 +185,7 @@ func WriteFloat64(w *jsoniter.Stream, field string, value float64, first bool) b
 		w.WriteMore()
 	}
 
-	w.WriteObjectField(field)
-	w.WriteFloat64(value)
+	WriteFloat64OneOf(w, field, value)
 
 	return false
 }
@@ -252,15 +199,7 @@ func WriteFloat64Slice(w *jsoniter.Stream, field string, value []float64, first 
 		w.WriteMore()
 	}
 
-	w.WriteObjectField(field)
-
-	w.WriteArrayStart()
-	w.WriteFloat64(value[0])
-	for _, v := range value[1:] {
-		w.WriteMore()
-		w.WriteFloat64(v)
-	}
-	w.WriteArrayEnd()
+	WriteFloat64SliceOneOf(w, field, value)
 
 	return false
 }
@@ -273,8 +212,7 @@ func WriteInt32(w *jsoniter.Stream, field string, value int32, first bool) bool 
 	if !first {
 		w.WriteMore()
 	}
-	w.WriteObjectField(field)
-	w.WriteInt32(value)
+	WriteInt32OneOf(w, field, value)
 
 	return false
 }
@@ -288,15 +226,7 @@ func WriteInt32Slice(w *jsoniter.Stream, field string, value []int32, first bool
 		w.WriteMore()
 	}
 
-	w.WriteObjectField(field)
-
-	w.WriteArrayStart()
-	w.WriteInt32(value[0])
-	for _, v := range value[1:] {
-		w.WriteMore()
-		w.WriteInt32(v)
-	}
-	w.WriteArrayEnd()
+	WriteInt32SliceOneOf(w, field, value)
 
 	return false
 }
@@ -310,8 +240,7 @@ func WriteInt64(w *jsoniter.Stream, field string, value int64, first bool) bool 
 		w.WriteMore()
 	}
 
-	w.WriteObjectField(field)
-	w.WriteInt64(value)
+	WriteInt64OneOf(w, field, value)
 
 	return false
 }
@@ -325,21 +254,13 @@ func WriteInt64Slice(w *jsoniter.Stream, field string, value []int64, first bool
 		w.WriteMore()
 	}
 
-	w.WriteObjectField(field)
-
-	w.WriteArrayStart()
-	w.WriteInt64(value[0])
-	for _, v := range value[1:] {
-		w.WriteMore()
-		w.WriteInt64(v)
-	}
-	w.WriteArrayEnd()
+	WriteInt64SliceOneOf(w, field, value)
 
 	return false
 }
 
 func WriteMarshaler(w *jsoniter.Stream, field string, value nidhi.Marshaler, first bool) bool {
-	if value == nil {
+	if value == nil || reflect.ValueOf(value).IsNil() {
 		return first
 	}
 
@@ -347,8 +268,7 @@ func WriteMarshaler(w *jsoniter.Stream, field string, value nidhi.Marshaler, fir
 		w.WriteMore()
 	}
 
-	w.WriteObjectField(field)
-	w.Error = value.MarshalDocument(w)
+	WriteMarshalerOneOf(w, field, value)
 
 	return false
 }
@@ -362,8 +282,7 @@ func WriteBytes(w *jsoniter.Stream, field string, value []byte, first bool) bool
 		w.WriteMore()
 	}
 
-	w.WriteObjectField(field)
-	w.WriteString(string(value))
+	WriteBytesOneOf(w, field, value)
 
 	return false
 }
@@ -586,7 +505,7 @@ func WriteInt64SliceOneOf(w *jsoniter.Stream, field string, value []int64) {
 
 func WriteMarshalerOneOf(w *jsoniter.Stream, field string, value nidhi.Marshaler) {
 	w.WriteObjectField(field)
-	if value == nil {
+	if value == nil || reflect.ValueOf(value).IsNil() {
 		w.WriteNil()
 		return
 	}
@@ -597,5 +516,14 @@ func WriteMarshalerOneOf(w *jsoniter.Stream, field string, value nidhi.Marshaler
 
 func WriteBytesOneOf(w *jsoniter.Stream, field string, value []byte) {
 	w.WriteObjectField(field)
-	w.WriteString(string(value))
+	w.WriteString(base64.StdEncoding.EncodeToString(value))
+}
+
+func ReadByteSlice(r *jsoniter.Iterator) []byte {
+	v, err := base64.StdEncoding.DecodeString(r.ReadString())
+	if err != nil {
+		r.ReportError("decoding byte slice", err.Error())
+	}
+
+	return v
 }

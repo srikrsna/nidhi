@@ -2,6 +2,7 @@ package pgn_test
 
 import (
 	"fmt"
+	"sort"
 	"testing"
 
 	. "github.com/onsi/ginkgo"
@@ -50,5 +51,45 @@ func (matcher *protoEqual) FailureMessage(actual interface{}) (message string) {
 }
 
 func (matcher *protoEqual) NegatedFailureMessage(actual interface{}) (message string) {
+	return matcher.FailureMessage(actual)
+}
+
+type allSliceEqual struct {
+	expected []*pb.All
+}
+
+func AllSliceEqual(exp []*pb.All) types.GomegaMatcher {
+	return &allSliceEqual{
+		expected: exp,
+	}
+}
+
+func (matcher *allSliceEqual) Match(actual interface{}) (success bool, err error) {
+	response, ok := actual.([]*pb.All)
+	if !ok {
+		return false, fmt.Errorf("ProtoEqual matcher expects a proto.Message")
+	}
+
+	sort.Sort(byId(response))
+	sort.Sort(byId(matcher.expected))
+
+	if len(response) != len(matcher.expected) {
+		return false, nil
+	}
+
+	for i := range response {
+		if !proto.Equal(response[i], matcher.expected[i]) {
+			return false, nil
+		}
+	}
+
+	return true, nil
+}
+
+func (matcher *allSliceEqual) FailureMessage(actual interface{}) (message string) {
+	return fmt.Sprintf("Actual\n\t%v\nExpected\n\t%v", actual, matcher.expected)
+}
+
+func (matcher *allSliceEqual) NegatedFailureMessage(actual interface{}) (message string) {
 	return matcher.FailureMessage(actual)
 }
