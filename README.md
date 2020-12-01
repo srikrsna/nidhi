@@ -5,7 +5,8 @@ PostgreSQL powered document database. WIP.
 ## Roadmap
 
 - [ ] Parent and Id autogenerate
-- [ ] Generation
+- [x] Generation
 - [ ] Add Custum OrderBy Pagination
 - [x] Transaction Support
+- [ ] Explore PGX
 - [ ] Aggregate Functions
