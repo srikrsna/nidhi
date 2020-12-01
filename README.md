@@ -10,3 +10,4 @@ PostgreSQL powered document database. WIP.
 - [x] Transaction Support
 - [ ] Explore PGX
 - [ ] Aggregate Functions
+- [ ] Structured Logging
