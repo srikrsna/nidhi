@@ -87,10 +87,6 @@ func (st *{{ $lowerName }}Collection) Delete{{ $name }}(ctx context.Context, id 
 	return st.col.Delete(ctx, id, ops)
 }
 
-func (st *{{ $lowerName }}Collection) Count{{ $name }}s(ctx context.Context, f is{{ $name }}Query, ops ...nidhi.CountOption) (int64, error) {
-	return st.col.Count(ctx, f, ops)
-}
-
 func (st *{{ $lowerName }}Collection) Get{{ $name }}(ctx context.Context, id string, ops ...nidhi.GetOption) (*{{ $name }}, error) {
 	var entity {{ $name }}
 	return &entity, st.col.Get(ctx, id, &entity, ops)

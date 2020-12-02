@@ -237,12 +237,6 @@ var _ = Describe("Collection", func() {
 			Expect(act).To(Equal(exp))
 		})
 
-		It("count documents based on a query", func() {
-			Expect(col.Count(ctx,
-				newTestQuery().Number(&nidhi.IntQuery{Gt: nidhi.Int64(int64(marker))}),
-				nil,
-			)).To(Equal(int64(len(aboveMarker))))
-		})
 	})
 
 })

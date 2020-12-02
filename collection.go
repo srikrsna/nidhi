@@ -306,28 +306,6 @@ func (c *collection) Get(ctx context.Context, id string, doc Unmarshaler, ops []
 	return nil
 }
 
-func (c *collection) Count(ctx context.Context, f Sqlizer, ops []CountOption) (int64, error) {
-	var qop CountOptions
-	for _, op := range ops {
-		op(&qop)
-	}
-
-	st := sq.Select("count(*)").From(c.table)
-
-	if f != nil {
-		st = st.Where(f)
-	}
-
-	st = st.Where(notDeleted)
-
-	var count int64
-	if err := st.PlaceholderFormat(sq.Dollar).RunWith(c.tx).QueryRowContext(ctx).Scan(&count); err != nil {
-		return 0, fmt.Errorf("nidhi: unable to query collection: %s, err: %w", c.table, err)
-	}
-
-	return count, nil
-}
-
 func (c *collection) activityLog(ctx context.Context) *ActivityLog {
 	sub := ""
 	if c.subFunc != nil {

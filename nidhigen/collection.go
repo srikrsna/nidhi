@@ -14,5 +14,4 @@ type Collection interface {
 	DeleteMany(ctx context.Context, f nidhi.Sqlizer, ops []nidhi.DeleteOption) error
 	Query(ctx context.Context, f nidhi.Sqlizer, ctr func() nidhi.Document, ops []nidhi.QueryOption) error
 	Get(ctx context.Context, id string, doc nidhi.Unmarshaler, ops []nidhi.GetOption) error
-	Count(ctx context.Context, f nidhi.Sqlizer, ops []nidhi.CountOption) (int64, error)
 }

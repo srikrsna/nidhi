@@ -61,7 +61,7 @@ type PaginationOptions struct {
 	Limit    uint64
 	Backward bool
 	// Will be set by Nidhi
-	HasMore  bool
+	HasMore bool
 }
 
 type GetOptions struct {
@@ -79,17 +79,6 @@ func WithGetOptions(o GetOptions) GetOption {
 func WithGetViewMask(vm []string) GetOption {
 	return func(opt *GetOptions) {
 		opt.ViewMask = vm
-	}
-}
-
-type CountOptions struct {
-}
-
-type CountOption func(*CountOptions)
-
-func WithCountOptions(o CountOptions) CountOption {
-	return func(opt *CountOptions) {
-		*opt = o
 	}
 }
 
