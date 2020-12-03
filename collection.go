@@ -18,6 +18,7 @@ const (
 	ColMeta = "metadata"
 
 	notDeleted = "NOT (metadata ?? 'deleted')"
+	seperator  = ":"
 )
 
 type collection struct {
@@ -215,6 +216,7 @@ func (c *collection) Query(ctx context.Context, f Sqlizer, ctr func() Document, 
 	if len(c.fields) > 0 && len(qop.ViewMask) > 0 {
 		selection = sq.Expr(ColDoc+" - ?::text[]", pg.Array(difference(c.fields, qop.ViewMask)))
 	}
+
 	st := sq.Select().Column(selection).From(c.table)
 
 	if f != nil {
@@ -223,21 +225,9 @@ func (c *collection) Query(ctx context.Context, f Sqlizer, ctr func() Document, 
 
 	st = st.Where(notDeleted)
 
-	if qop.PaginationOptions != nil {
-		if qop.PaginationOptions.Backward {
-			if qop.PaginationOptions.Cursor != "" {
-				st = st.Where(ColId+" < ?", qop.PaginationOptions.Cursor)
-			}
-			st = st.OrderBy(ColId + ` DESC`)
-		} else {
-			if qop.PaginationOptions.Cursor != "" {
-				st = st.Where(ColId+" > ?", qop.PaginationOptions.Cursor)
-			}
-			st = st.OrderBy(ColId + ` ASC`)
-		}
-
-		qop.PaginationOptions.HasMore = false
-		st = st.Limit(qop.PaginationOptions.Limit + 1)
+	st, scans, err := addPagination(st, qop.PaginationOptions)
+	if err != nil {
+		return fmt.Errorf("nidhi: unable to paginate: %s, err: %w", c.table, err)
 	}
 
 	rows, err := st.PlaceholderFormat(sq.Dollar).RunWith(c.tx).QueryContext(ctx)
@@ -253,6 +243,7 @@ func (c *collection) Query(ctx context.Context, f Sqlizer, ctr func() Document, 
 		count  uint64
 		entity sql.RawBytes
 	)
+	scans = append([]interface{}{&entity}, scans...)
 	for rows.Next() {
 		if qop.PaginationOptions != nil && qop.PaginationOptions.Limit <= count {
 			qop.PaginationOptions.HasMore = true
@@ -261,7 +252,7 @@ func (c *collection) Query(ctx context.Context, f Sqlizer, ctr func() Document, 
 
 		count++
 		doc := ctr()
-		if err := rows.Scan(&entity); err != nil {
+		if err := rows.Scan(scans...); err != nil {
 			return fmt.Errorf("nidhi: unexpected error while querying collection: %s, err: %w", c.table, err)
 		}
 
@@ -273,6 +264,14 @@ func (c *collection) Query(ctx context.Context, f Sqlizer, ctr func() Document, 
 
 	if err := rows.Err(); err != nil {
 		return fmt.Errorf("nidhi: unexpected error while querying collection: %s, err: %w", c.table, err)
+	}
+
+	if qop.PaginationOptions != nil {
+		if len(scans) == 2 {
+			qop.PaginationOptions.NextCursor = *(scans[1].(*string))
+		} else {
+			qop.PaginationOptions.NextCursor = qop.PaginationOptions.OrderBy[0].Field.Encode(scans[1], *(scans[2].(*string)))
+		}
 	}
 
 	return nil

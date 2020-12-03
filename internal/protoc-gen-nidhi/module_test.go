@@ -265,7 +265,7 @@ var _ = Describe("Collection", func() {
 					Expect(len(pr)).To(Equal(1))
 					act = append(act, pr...)
 
-					cursor = pr[0].Id
+					cursor = po.NextCursor
 
 					if !po.HasMore {
 						break
