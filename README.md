@@ -4,6 +4,7 @@ PostgreSQL powered document database. WIP.
 
 ## Roadmap
 
-- [ ] Parent and Id autogenerate
-- [ ] Add Custum OrderBy Pagination
-- [ ] Explore PGX
+- [ ] Id autogenerate
+- [ ] Use Go embed
+- [ ] Migrate tests to Testify
+- [ ] Finish README

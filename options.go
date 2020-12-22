@@ -60,8 +60,16 @@ type PaginationOptions struct {
 	Cursor   string
 	Limit    uint64
 	Backward bool
+	// OrderBy fields, if empty defaults to [{"id", false}]
+	OrderBy []OrderBy
 	// Will be set by Nidhi
-	HasMore bool
+	HasMore    bool
+	NextCursor string
+}
+
+type OrderBy struct {
+	Field Orderer
+	Desc  bool
 }
 
 type GetOptions struct {
