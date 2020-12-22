@@ -26,6 +26,13 @@ func (a byId) Len() int           { return len(a) }
 func (a byId) Less(i, j int) bool { return a[i].Id < a[j].Id }
 func (a byId) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 
+type byInt32Field []*pb.All
+
+// Len is the number of elements in the collection.
+func (a byInt32Field) Len() int           { return len(a) }
+func (a byInt32Field) Less(i, j int) bool { return a[i].Int32Field < a[j].Int32Field }
+func (a byInt32Field) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+
 func ProtoEqual(expected proto.Message) types.GomegaMatcher {
 	return &protoEqual{
 		expected: expected,

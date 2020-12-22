@@ -99,13 +99,14 @@ func (m *Module) Execute(files map[string]pgs.File, _ map[string]pgs.Package) []
 			continue
 		}
 
-		name := m.goContext.OutputPath(file).SetExt(".nidhi.go")
-		m.AddGeneratorTemplateFile(name.String(), m.tpl.Lookup("header"), file)
-		headersWritten[name.String()] = true
+		name := m.goContext.OutputPath(file).SetExt(".nidhi.go").String()
+		m.AddGeneratorTemplateFile(name, m.tpl.Lookup("header"), file)
+		headersWritten[name] = true
 		for _, root := range roots {
-			m.AddGeneratorTemplateAppend(name.String(), m.tpl.Lookup("store"), root)
-			m.AddGeneratorTemplateAppend(name.String(), m.tpl.Lookup("query"), root)
-			m.generateSubQuery(name.String(), root, root, root.Name())
+			m.AddGeneratorTemplateAppend(name, m.tpl.Lookup("fields-header"), root)
+			m.AddGeneratorTemplateAppend(name, m.tpl.Lookup("store"), root)
+			m.AddGeneratorTemplateAppend(name, m.tpl.Lookup("query"), root)
+			m.generateSubQuery(name, root, root, root.Name())
 		}
 
 		allRoots = append(allRoots, roots...)
@@ -153,6 +154,7 @@ func (m *Module) generateMarshaler(msg pgs.Message, generated, headersWritten ma
 		return
 	}
 
+	m.AddGeneratorTemplateAppend(name, m.tpl.Lookup("fields"), msg)
 	m.AddGeneratorTemplateAppend(name, m.tpl.Lookup("json"), msg)
 	generated[msg.FullyQualifiedName()] = true
 

@@ -240,6 +240,29 @@ var _ = Describe("Collection", func() {
 			qfe(exp, nidhi.WithQueryOptions(nidhi.QueryOptions{ViewMask: []string{"int32Field"}}))
 		})
 
+		It("orders based on the field passed", func() {
+			exp := make([]*pb.All, 0, len(aboveMarker))
+			for i := range aboveMarker {
+				var e pb.All
+				e.Int32Field = aboveMarker[i].Int32Field
+				exp = append(exp, &e)
+			}
+			sort.Sort(byInt32Field(exp))
+			qfe(exp, nidhi.WithQueryOptions(
+				nidhi.QueryOptions{
+					ViewMask: []string{"int32Field"},
+					PaginationOptions: &nidhi.PaginationOptions{
+						Limit: uint64(len(exp)),
+						OrderBy: []nidhi.OrderBy{
+							{
+								Field: pb.AllSchema().Int32Field(),
+							},
+						},
+					},
+				},
+			))
+		})
+
 		Context("Pagination", func() {
 
 			It("has more", func() {
