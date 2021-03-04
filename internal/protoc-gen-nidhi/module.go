@@ -1,8 +1,9 @@
 package pgn
 
 import (
+	"embed"
+	"io/fs"
 	"io/ioutil"
-	"os"
 	"strconv"
 	"strings"
 	"text/template"
@@ -10,7 +11,6 @@ import (
 	"github.com/gertd/go-pluralize"
 	pgs "github.com/lyft/protoc-gen-star"
 	pgsgo "github.com/lyft/protoc-gen-star/lang/go"
-	"github.com/markbates/pkger"
 
 	nidhipb "github.com/srikrsna/nidhi/nidhi"
 )
@@ -167,10 +167,13 @@ func (m *Module) generateMarshaler(msg pgs.Message, generated, headersWritten ma
 	}
 }
 
+//go:embed templates/*.tmpl
+var tfs embed.FS
+
 func parseTemplates(fm template.FuncMap) (*template.Template, error) {
 	tpl := template.New("nidhi").Funcs(fm)
 
-	if err := pkger.Walk("/internal/protoc-gen-nidhi/templates/", func(path string, info os.FileInfo, err error) error {
+	if err := fs.WalkDir(tfs, ".", func(path string, info fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -179,7 +182,7 @@ func parseTemplates(fm template.FuncMap) (*template.Template, error) {
 			return nil
 		}
 
-		f, err := pkger.Open(path)
+		f, err := tfs.Open(path)
 		if err != nil {
 			return err
 		}
@@ -196,7 +199,7 @@ func parseTemplates(fm template.FuncMap) (*template.Template, error) {
 
 		return nil
 	}); err != nil {
-		return tpl, err
+		return nil, err
 	}
 
 	return tpl, nil
