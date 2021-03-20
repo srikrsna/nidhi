@@ -48,6 +48,12 @@ func (m *Module) InitContext(c pgs.BuildContext) {
 		"IsBytes": func(f pgs.Field) bool {
 			return !f.Type().IsRepeated() && f.Type().ProtoType() == pgs.BytesT
 		},
+		"IsWKT": func(f pgs.Field) bool {
+			return f.Type().IsEmbed() && f.Type().Embed().IsWellKnown()
+		},
+		"IsWKTTime": func(f pgs.Field) bool {
+			return f.Type().Embed().WellKnownType() == pgs.TimestampWKT
+		},
 		"Fields": func(msg pgs.Message) string {
 			var ff string
 			for _, f := range msg.Fields() {
@@ -129,7 +135,7 @@ func (m *Module) generateSubQuery(name string, root, msg pgs.Message, parent pgs
 	}
 
 	for _, f := range msg.Fields() {
-		if !f.Type().IsEmbed() {
+		if !f.Type().IsEmbed() || f.Type().Embed().IsWellKnown() {
 			continue
 		}
 

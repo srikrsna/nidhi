@@ -14,10 +14,16 @@ func (doc *{{ $name }}) MarshalDocument(w *jsoniter.Stream) error {
 {{- range .NonOneOfFields }}{{- /*gotype: github.com/lyft/protoc-gen-star.Field */ -}}{{- $gtype := . | GoType }}
 {{- if .Type.IsRepeated }}
 {{- if .Type.Element.IsEmbed }}
+{{- if .Type.Element.Embed.IsWellKnown }}
+	first = nidhigen.Write{{ .Type.Element.Embed.WellKnownType }}Slice(w, "{{ .Name | LowerCamel }}", doc.{{ . | Name }}, first)
+{{- else }}
     first = nidhigen.WriteMarshaler(w, "{{ .Name | LowerCamel }}",  {{ $gtype.Element.Value }}Slice(doc.{{ . | Name }}), first)
+{{- end }}
 {{- else }}
     first = nidhigen.Write{{ $gtype.Element | Capitalise }}Slice(w, "{{ .Name | LowerCamel }}", doc.{{ . | Name }}, first)
 {{- end }}
+{{- else if . | IsWKT }}
+	first = nidhigen.Write{{ .Type.Embed.WellKnownType }}(w, "{{ .Name | LowerCamel }}", doc.{{ . | Name }}, first)
 {{- else if .Type.IsEmbed }}
     first = nidhigen.WriteMarshaler(w, "{{ .Name | LowerCamel }}", doc.{{ . | Name }}, first)
 {{- else if . | IsBytes }}
@@ -68,10 +74,16 @@ func (doc *{{ $name }}) UnmarshalDocument(r *jsoniter.Iterator) error {
 func (of *{{ $name }}) MarshalDocument(w *jsoniter.Stream) error {
 {{- if .Type.IsRepeated }}
 	{{- if .Type.Element.IsEmbed }}
+	{{- if .Type.Element.Embed.IsWellKnown  }}
+		nidhigen.Write{{ .Type.Element.Embed.WellKnownType }}SliceOneOf(w, "{{ .Name | LowerCamel }}", of.{{ . | Name }})
+	{{- else }}
 		nidhigen.WriteMarshalerOneOf(w, "{{ .Name | LowerCamel }}",  {{ $gtype.Element.Value }}Slice(of.{{ . | Name }}))
+	{{- end }}
 	{{- else }}
 		nidhigen.Write{{ $gtype.Element | Capitalise }}SliceOneOf(w, "{{ .Name | LowerCamel }}", of.{{ . | Name }})
 	{{- end }}
+{{- else if . | IsWKT }}
+	nidhigen.Write{{ .Type.Embed.WellKnownType }}OneOf(w, "{{ .Name | LowerCamel }}", of.{{ . | Name }})
 {{- else if .Type.IsEmbed }}
 	nidhigen.WriteMarshalerOneOf(w, "{{ .Name | LowerCamel }}", of.{{ . | Name }})
 {{- else if . | IsBytes }}
@@ -118,9 +130,17 @@ func (s *{{ $name }}Slice) UnmarshalDocument(r *jsoniter.Iterator) error {
 {{ define "unmarshal" }}{{- /*gotype: github.com/lyft/protoc-gen-star.Field */ -}}{{- $gtype := . | GoType }}{{ $fa := printf "%s%s" "doc." (. | Name) }}
 	{{- if .InOneOf }}{{ $fa = printf "%s%s" "f." (. | Name) }}{{- end}}
 	{{- if .Type.IsRepeated }}
-		{{$fa}} = {{ $gtype }}{}
+		{{$fa}} = {{ $gtype }}{}		
 		{{- if .Type.Element.IsEmbed }}
+		{{- if .Type.Element.Embed.IsWellKnown }}
+			r.ReadArrayCB(func(r *jsoniter.Iterator) bool {
+				e := r.Read{{ .Type.Element.Embed.WellKnownType }}()
+				{{$fa}} = append({{$fa}}, e)
+				return true
+			})
+		{{- else }}
 			r.Error = (*{{ $gtype.Element.Value }}Slice)(&{{$fa}}).UnmarshalDocument(r)
+		{{- end }}
 		{{- else }}
 			r.ReadArrayCB(func(r *jsoniter.Iterator) bool {
 				e := r.Read{{ $gtype.Element | Capitalise }}()
@@ -128,6 +148,8 @@ func (s *{{ $name }}Slice) UnmarshalDocument(r *jsoniter.Iterator) error {
 				return true
 			})
 		{{- end }}
+	{{- else if . | IsWKT }}
+		{{$fa}} = nidhigen.Read{{ .Type.Embed.WellKnownType }}(r)
 	{{- else if .Type.IsEmbed }}
 		{{$fa}} = &{{$gtype.Value}}{}
 		r.Error = {{$fa}}.UnmarshalDocument(r)

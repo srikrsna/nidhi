@@ -3,8 +3,10 @@ package nidhigen
 import (
 	"encoding/base64"
 	"reflect"
+	"time"
 
 	jsoniter "github.com/json-iterator/go"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/srikrsna/nidhi"
 )
@@ -259,6 +261,34 @@ func WriteInt64Slice(w *jsoniter.Stream, field string, value []int64, first bool
 	return false
 }
 
+func WriteTimestamp(w *jsoniter.Stream, field string, value *timestamppb.Timestamp, first bool) bool {
+	if value == nil {
+		return first
+	}
+
+	if !first {
+		w.WriteMore()
+	}
+
+	WriteTimestampOneOf(w, field, value)
+
+	return false
+}
+
+func WriteTimestampSlice(w *jsoniter.Stream, field string, value []*timestamppb.Timestamp, first bool) bool {
+	if len(value) == 0 {
+		return first
+	}
+
+	if !first {
+		w.WriteMore()
+	}
+
+	WriteTimestampSliceOneOf(w, field, value)
+
+	return false
+}
+
 func WriteMarshaler(w *jsoniter.Stream, field string, value nidhi.Marshaler, first bool) bool {
 	if value == nil || reflect.ValueOf(value).IsNil() {
 		return first
@@ -503,6 +533,28 @@ func WriteInt64SliceOneOf(w *jsoniter.Stream, field string, value []int64) {
 	w.WriteArrayEnd()
 }
 
+func WriteTimestampOneOf(w *jsoniter.Stream, field string, value *timestamppb.Timestamp) {
+	w.WriteObjectField(field)
+	w.WriteString(value.AsTime().Format(time.RFC3339))
+}
+
+func WriteTimestampSliceOneOf(w *jsoniter.Stream, field string, value []*timestamppb.Timestamp) {
+	w.WriteObjectField(field)
+
+	if len(value) == 0 {
+		w.WriteEmptyArray()
+		return
+	}
+
+	w.WriteArrayStart()
+	w.WriteString(value[0].AsTime().Format(time.RFC3339))
+	for _, v := range value[1:] {
+		w.WriteMore()
+		w.WriteString(v.AsTime().Format(time.RFC3339))
+	}
+	w.WriteArrayEnd()
+}
+
 func WriteMarshalerOneOf(w *jsoniter.Stream, field string, value nidhi.Marshaler) {
 	w.WriteObjectField(field)
 	if value == nil || reflect.ValueOf(value).IsNil() {
@@ -526,4 +578,13 @@ func ReadByteSlice(r *jsoniter.Iterator) []byte {
 	}
 
 	return v
+}
+
+func ReadTimestamp(r *jsoniter.Iterator) *timestamppb.Timestamp {
+	t, err := time.Parse(time.RFC3339, r.ReadString())
+	if err != nil {
+		r.ReportError("decoding timestamp", err.Error())
+	}
+
+	return timestamppb.New(t)
 }

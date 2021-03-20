@@ -23,6 +23,7 @@ func FuzzAll(msg *pb.All, c fuzz.Continue) {
     c.Fuzz(&msg.SimpleObjectField)
     c.Fuzz(&msg.SimpleRepeated)
     c.Fuzz(&msg.NestedOne)
+    c.Fuzz(&msg.Timestamp)
     switch c.Int31n(10) {
     case 0:
         var f pb.All_StringOneOf

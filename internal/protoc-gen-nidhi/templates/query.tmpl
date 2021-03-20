@@ -19,6 +19,10 @@ type {{ $name }}Query interface {
 	{{ . | Name }}(*nidhi.StringQuery) {{ $name }}Conj
 {{- else if . | IsBool }}
 	{{ . | Name }}(*nidhi.BoolQuery) {{ $name }}Conj
+{{- else if . | IsWKT }}
+	{{- if . | IsWKTTime }}
+	{{ . | Name }}(*nidhi.TimeQuery) {{ $name }}Conj
+	{{- end }}
 {{- else if .Type.IsRepeated }}{{- $gtype := . | GoType }}
 	{{ . | Name }}({{ with not .Type.Element.IsEmbed }}nidhi.SliceOptions,{{ end }} ...{{ $gtype.Element }}) {{ $name }}Conj
 {{- else if .Type.IsEmbed }}
@@ -74,6 +78,13 @@ func (q *{{ $lowerName }}Query) {{ . | Name }}(f *nidhi.BoolQuery) {{ $name }}Co
 	(*nidhi.Query)(q).Field(" ("+nidhi.ColDoc+"->'{{ .Name | LowerCamel }}')::bool", f)
 	return q
 }
+	{{ else if . | IsWKT }}
+	{{ if . | IsWKTTime }}
+func (q *{{ $lowerName }}Query) {{ . | Name }}(f *nidhi.TimeQuery) {{ $name }}Conj {
+	(*nidhi.Query)(q).Field(" ("+nidhi.ColDoc+"->'{{ .Name | LowerCamel }}')::timestamp", f)
+	return q
+}
+	{{ end }}
 	{{ else if .Type.IsRepeated }}{{- $gtype := . | GoType }}
 func (q *{{ $lowerName }}Query) {{ . | Name }}({{ with not .Type.Element.IsEmbed }}opt nidhi.SliceOptions,{{ end }} arr ...{{ $gtype.Element }}) {{ $name }}Conj {
 	(*nidhi.Query)(q).Field(
