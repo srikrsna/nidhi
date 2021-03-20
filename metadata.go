@@ -13,8 +13,8 @@ type Metadata struct {
 }
 
 type ActivityLog struct {
-	By string    `json:"by"`
 	On time.Time `json:"on"`
+	By string    `json:"by"`
 }
 
 func (log *ActivityLog) MarshalDocument(w *jsoniter.Stream) error {

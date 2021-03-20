@@ -57,14 +57,15 @@ func WithPaginationOptions(po *PaginationOptions) QueryOption {
 }
 
 type PaginationOptions struct {
-	Cursor   string
+	Cursor string
+	// NextCursor will be set by Nidhi
+	NextCursor string
+	// OrderBy fields, if empty defaults to [{"id", false}]
+	OrderBy  []OrderBy
 	Limit    uint64
 	Backward bool
-	// OrderBy fields, if empty defaults to [{"id", false}]
-	OrderBy []OrderBy
-	// Will be set by Nidhi
-	HasMore    bool
-	NextCursor string
+	// HasMore will be set by Nidhi
+	HasMore bool
 }
 
 type OrderBy struct {

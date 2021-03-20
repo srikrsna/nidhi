@@ -30,9 +30,9 @@ func PutQuery(q *Query) {
 }
 
 type Query struct {
+	err   error
 	query strings.Builder
 	args  []interface{}
-	err   error
 }
 
 func (q *Query) Reset() {

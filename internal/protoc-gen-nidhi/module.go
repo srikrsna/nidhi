@@ -1,3 +1,4 @@
+// Package pgn ...
 package pgn
 
 import (
@@ -122,9 +123,9 @@ func (m *Module) Execute(files map[string]pgs.File, _ map[string]pgs.Package) []
 
 func (m *Module) generateSubQuery(name string, root, msg pgs.Message, parent pgs.Name) {
 	type SubRoot struct {
-		Root   pgs.Message
-		Parent pgs.Name
+		Root pgs.Message
 		pgs.Field
+		Parent pgs.Name
 	}
 
 	for _, f := range msg.Fields() {
@@ -132,7 +133,7 @@ func (m *Module) generateSubQuery(name string, root, msg pgs.Message, parent pgs
 			continue
 		}
 
-		m.AddGeneratorTemplateAppend(name, m.tpl.Lookup("sub-query"), SubRoot{root, parent, f})
+		m.AddGeneratorTemplateAppend(name, m.tpl.Lookup("sub-query"), SubRoot{Root: root, Parent: parent, Field: f})
 
 		m.generateSubQuery(name, root, f.Type().Embed(), parent.UpperCamelCase()+f.Name().UpperCamelCase())
 	}
