@@ -81,6 +81,16 @@ func (doc *Metadata) UnmarshalMetadata(key string, r *jsoniter.Iterator) (bool, 
 	return true, r.Error
 }
 
+type Creator struct {
+	Values []*Metadata
+}
+
+func (c *Creator) Create() nidhi.MetadataUnmarshaler {
+	var md Metadata
+	c.Values = append(c.Values, &md)
+	return &md
+}
+
 type ActivityLog struct {
 	On time.Time `json:"on"`
 	By string    `json:"by"`
@@ -134,27 +144,27 @@ type provider struct {
 }
 
 func (p *provider) Create(ctx context.Context, doc nidhi.Document, ops []nidhi.CreateOption) (string, error) {
-	ops = append(ops, nidhi.WithCreateMetadataCreateOptions(&Metadata{Created: p.activityLog(ctx)}), nidhi.WithReplaceMetadataReplaceOptions(&Metadata{Updated: p.activityLog(ctx)}))
+	ops = append(ops, nidhi.WithCreateCreateMetadata(&Metadata{Created: p.activityLog(ctx)}), nidhi.WithCreateReplaceMetadata(&Metadata{Updated: p.activityLog(ctx)}))
 	return p.Col.Create(ctx, doc, ops)
 }
 
 func (p *provider) Replace(ctx context.Context, doc nidhi.Document, ops []nidhi.ReplaceOption) error {
-	ops = append(ops, nidhi.WithMetadataReplaceOptions(&Metadata{Updated: p.activityLog(ctx)}))
+	ops = append(ops, nidhi.WithReplaceMetadata(&Metadata{Updated: p.activityLog(ctx)}))
 	return p.Col.Replace(ctx, doc, ops)
 }
 
 func (p *provider) Update(ctx context.Context, doc nidhi.Document, f nidhi.Sqlizer, ops []nidhi.UpdateOption) error {
-	ops = append(ops, nidhi.WithMetadataUpdateOptions(&Metadata{Updated: p.activityLog(ctx)}))
+	ops = append(ops, nidhi.WithUpdateMetadata(&Metadata{Updated: p.activityLog(ctx)}))
 	return p.Col.Update(ctx, doc, f, ops)
 }
 
 func (p *provider) Delete(ctx context.Context, id string, ops []nidhi.DeleteOption) error {
-	ops = append(ops, nidhi.WithMetadataDeleteOptions(&Metadata{Deleted: p.activityLog(ctx)}))
+	ops = append(ops, nidhi.WithDeleteMetadata(&Metadata{Deleted: p.activityLog(ctx)}))
 	return p.Col.Delete(ctx, id, ops)
 }
 
 func (p *provider) DeleteMany(ctx context.Context, f nidhi.Sqlizer, ops []nidhi.DeleteOption) error {
-	ops = append(ops, nidhi.WithMetadataDeleteOptions(&Metadata{Deleted: p.activityLog(ctx)}))
+	ops = append(ops, nidhi.WithDeleteMetadata(&Metadata{Deleted: p.activityLog(ctx)}))
 	return p.Col.DeleteMany(ctx, f, ops)
 }
 

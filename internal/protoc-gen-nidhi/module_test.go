@@ -184,6 +184,15 @@ var _ = Describe("Collection", func() {
 			})
 		})
 
+		Context("Metadata", func() {
+			It("Get the metadata", func() {
+				var md activitylogs.Metadata
+				_, err := col.GetAll(ctx, doc.Id, nidhi.WithGetMetadata(&md))
+				Expect(err).To(BeNil())
+				Expect(md.Created).ToNot(BeNil())
+			})
+		})
+
 		It("should be able to replace a document", func() {
 			exp := proto.Clone(&doc).(*pb.All)
 			exp.Int32Field = doc.Int32Field + 2
@@ -353,6 +362,15 @@ var _ = Describe("Collection", func() {
 			}
 
 			Expect(act).To(AllSliceEqual(exp))
+		})
+
+		Context("Metadata", func() {
+			It("should fetch activity logs on query", func() {
+				exp := aboveMarker
+				var mdc activitylogs.Creator
+				qfe(exp, nidhi.WithQueryCreateMetadata(mdc.Create))
+				Expect(len(mdc.Values)).To(Equal(len(exp)))
+			})
 		})
 	})
 

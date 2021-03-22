@@ -5,8 +5,8 @@ type CollectionOptions struct {
 }
 
 type CreateOptions struct {
-	CreateMetadata  Metadata
-	ReplaceMetadata Metadata
+	CreateMetadata  []MetadataMarshaler
+	ReplaceMetadata []MetadataMarshaler
 	// Replace will replace the document if it exists otherwise it will throw an error.
 	Replace bool
 }
@@ -19,20 +19,20 @@ func WithCreateOptions(o CreateOptions) CreateOption {
 	}
 }
 
-func WithCreateMetadataCreateOptions(mm ...MetadataMarshaler) CreateOption {
+func WithCreateCreateMetadata(mm ...MetadataMarshaler) CreateOption {
 	return func(co *CreateOptions) {
 		co.CreateMetadata = append(co.CreateMetadata, mm...)
 	}
 }
 
-func WithReplaceMetadataReplaceOptions(mm ...MetadataMarshaler) CreateOption {
+func WithCreateReplaceMetadata(mm ...MetadataMarshaler) CreateOption {
 	return func(co *CreateOptions) {
 		co.ReplaceMetadata = append(co.ReplaceMetadata, mm...)
 	}
 }
 
 type DeleteOptions struct {
-	Metadata  Metadata
+	Metadata  []MetadataMarshaler
 	Permanent bool
 }
 
@@ -44,7 +44,7 @@ func WithDeleteOptions(o DeleteOptions) DeleteOption {
 	}
 }
 
-func WithMetadataDeleteOptions(mm ...MetadataMarshaler) DeleteOption {
+func WithDeleteMetadata(mm ...MetadataMarshaler) DeleteOption {
 	return func(do *DeleteOptions) {
 		do.Metadata = append(do.Metadata, mm...)
 	}
@@ -53,6 +53,7 @@ func WithMetadataDeleteOptions(mm ...MetadataMarshaler) DeleteOption {
 type QueryOptions struct {
 	PaginationOptions *PaginationOptions
 	ViewMask          []string
+	CreateMetadata    []CreateMetadataFunc
 }
 
 type QueryOption func(*QueryOptions)
@@ -75,6 +76,12 @@ func WithPaginationOptions(po *PaginationOptions) QueryOption {
 	}
 }
 
+func WithQueryCreateMetadata(mcf ...CreateMetadataFunc) QueryOption {
+	return func(qo *QueryOptions) {
+		qo.CreateMetadata = append(qo.CreateMetadata, mcf...)
+	}
+}
+
 type PaginationOptions struct {
 	Cursor string
 	// NextCursor will be set by Nidhi
@@ -94,6 +101,8 @@ type OrderBy struct {
 
 type GetOptions struct {
 	ViewMask []string
+
+	Metadata []MetadataUnmarshaler
 }
 
 type GetOption func(*GetOptions)
@@ -110,8 +119,14 @@ func WithGetViewMask(vm []string) GetOption {
 	}
 }
 
+func WithGetMetadata(mm ...MetadataUnmarshaler) GetOption {
+	return func(opt *GetOptions) {
+		opt.Metadata = append(opt.Metadata, mm...)
+	}
+}
+
 type ReplaceOptions struct {
-	Metadata Metadata
+	Metadata []MetadataMarshaler
 	Revision int64
 }
 
@@ -123,14 +138,14 @@ func WithReplaceOptions(o ReplaceOptions) ReplaceOption {
 	}
 }
 
-func WithMetadataReplaceOptions(mm ...MetadataMarshaler) ReplaceOption {
+func WithReplaceMetadata(mm ...MetadataMarshaler) ReplaceOption {
 	return func(ro *ReplaceOptions) {
 		ro.Metadata = append(ro.Metadata, mm...)
 	}
 }
 
 type UpdateOptions struct {
-	Metadata Metadata
+	Metadata []MetadataMarshaler
 }
 
 type UpdateOption func(*UpdateOptions)
@@ -141,7 +156,7 @@ func WithUpdateOptions(o UpdateOptions) UpdateOption {
 	}
 }
 
-func WithMetadataUpdateOptions(mm ...MetadataMarshaler) UpdateOption {
+func WithUpdateMetadata(mm ...MetadataMarshaler) UpdateOption {
 	return func(uo *UpdateOptions) {
 		uo.Metadata = append(uo.Metadata, mm...)
 	}
