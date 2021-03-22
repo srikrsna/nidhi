@@ -2,10 +2,13 @@ package nidhigen
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"reflect"
 	"time"
 
 	jsoniter "github.com/json-iterator/go"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/srikrsna/nidhi"
@@ -289,6 +292,34 @@ func WriteTimestampSlice(w *jsoniter.Stream, field string, value []*timestamppb.
 	return false
 }
 
+func WriteAny(w *jsoniter.Stream, field string, value *anypb.Any, first bool) bool {
+	if value == nil {
+		return first
+	}
+
+	if !first {
+		w.WriteMore()
+	}
+
+	WriteAnyOneOf(w, field, value)
+
+	return false
+}
+
+func WriteAnySlice(w *jsoniter.Stream, field string, value []*anypb.Any, first bool) bool {
+	if len(value) == 0 {
+		return first
+	}
+
+	if !first {
+		w.WriteMore()
+	}
+
+	WriteAnySliceOneOf(w, field, value)
+
+	return false
+}
+
 func WriteMarshaler(w *jsoniter.Stream, field string, value nidhi.Marshaler, first bool) bool {
 	if value == nil || reflect.ValueOf(value).IsNil() {
 		return first
@@ -555,6 +586,43 @@ func WriteTimestampSliceOneOf(w *jsoniter.Stream, field string, value []*timesta
 	w.WriteArrayEnd()
 }
 
+func WriteAnyOneOf(w *jsoniter.Stream, field string, value *anypb.Any) {
+	w.WriteObjectField(field)
+	buf, err := protojson.Marshal(value)
+	if err != nil {
+		w.Error = err
+		return
+	}
+
+	w.WriteVal(json.RawMessage(buf))
+}
+
+func WriteAnySliceOneOf(w *jsoniter.Stream, field string, value []*anypb.Any) {
+	w.WriteObjectField(field)
+	if len(value) == 0 {
+		w.WriteEmptyArray()
+		return
+	}
+
+	w.WriteArrayStart()
+	buf, err := protojson.Marshal(value[0])
+	if err != nil {
+		w.Error = err
+		return
+	}
+	w.WriteVal(json.RawMessage(buf))
+	for _, v := range value[1:] {
+		w.WriteMore()
+		buf, err := protojson.Marshal(v)
+		if err != nil {
+			w.Error = err
+			return
+		}
+		w.WriteVal(json.RawMessage(buf))
+	}
+	w.WriteArrayEnd()
+}
+
 func WriteMarshalerOneOf(w *jsoniter.Stream, field string, value nidhi.Marshaler) {
 	w.WriteObjectField(field)
 	if value == nil || reflect.ValueOf(value).IsNil() {
@@ -587,4 +655,15 @@ func ReadTimestamp(r *jsoniter.Iterator) *timestamppb.Timestamp {
 	}
 
 	return timestamppb.New(t)
+}
+
+func ReadAny(r *jsoniter.Iterator) *anypb.Any {
+	var buf json.RawMessage
+	r.ReadVal(&buf)
+
+	var any anypb.Any
+	if err := protojson.Unmarshal([]byte(buf), &any); err != nil {
+		r.ReportError("decoding any", err.Error())
+	}
+	return &any
 }

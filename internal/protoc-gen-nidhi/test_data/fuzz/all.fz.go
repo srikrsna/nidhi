@@ -24,6 +24,7 @@ func FuzzAll(msg *pb.All, c fuzz.Continue) {
     c.Fuzz(&msg.SimpleRepeated)
     c.Fuzz(&msg.NestedOne)
     c.Fuzz(&msg.Timestamp)
+    c.Fuzz(&msg.AnyField)
     switch c.Int31n(10) {
     case 0:
         var f pb.All_StringOneOf
@@ -115,6 +116,8 @@ func FuzzSimple(msg *pb.Simple, c fuzz.Continue) {
 func FuzzNestedOne(msg *pb.NestedOne, c fuzz.Continue) {
     c.Fuzz(&msg.NestetedInt)
     c.Fuzz(&msg.Nested)
+    c.Fuzz(&msg.T)
+    c.Fuzz(&msg.A)
 }
 
 func FuzzNestedTwo(msg *pb.NestedTwo, c fuzz.Continue) {

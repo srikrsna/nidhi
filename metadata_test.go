@@ -1,12 +1,11 @@
 package nidhi_test
 
 import (
-	"bytes"
 	"encoding/json"
-	"reflect"
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/google/uuid"
 	jsoniter "github.com/json-iterator/go"
 	"github.com/srikrsna/nidhi"
@@ -18,8 +17,6 @@ func TestActivityLog_MarshalDocument(t *testing.T) {
 		By: uuid.New().String(),
 	}
 
-	exp, _ := json.Marshal(log)
-
 	w := jsoniter.ConfigDefault.BorrowStream(nil)
 	defer jsoniter.ConfigDefault.ReturnStream(w)
 
@@ -28,8 +25,13 @@ func TestActivityLog_MarshalDocument(t *testing.T) {
 		return
 	}
 
-	if !bytes.Equal(exp, w.Buffer()) {
-		t.Errorf("output mismatch, exp: %s, act: %s", exp, w.Buffer())
+	var act nidhi.ActivityLog
+	if err := json.Unmarshal(w.Buffer(), &act); err != nil {
+		t.Fatal(err)
+	}
+
+	if !cmp.Equal(log, &act) {
+		t.Errorf("output mismatch, exp: %v, act: %v", log, &act)
 	}
 }
 
@@ -57,8 +59,7 @@ func TestActivityLog_UnmarshalDocument(t *testing.T) {
 		return
 	}
 
-	if !reflect.DeepEqual(exp, act) {
+	if !cmp.Equal(exp, act) {
 		t.Fatalf("output mismatch, exp: %v, act: %v", exp, act)
 	}
 }
-

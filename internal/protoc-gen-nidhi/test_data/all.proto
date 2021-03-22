@@ -6,6 +6,7 @@ option go_package = "github.com/srikrsna/nidhi/internal/protoc-gen-nidhi/test_da
 
 import "nidhi/nidhi.proto";
 import "google/protobuf/timestamp.proto";
+import "google/protobuf/any.proto";
 
 message All {
   option (nidhi.prefix) = 'all';
@@ -42,6 +43,7 @@ message All {
   NestedOne nested_one = 24;
 
   google.protobuf.Timestamp timestamp = 25;
+  google.protobuf.Any anyField = 26;
 }
 
 message Simple { string string_field = 1; }
@@ -49,6 +51,8 @@ message Simple { string string_field = 1; }
 message NestedOne {
   int32 nesteted_int = 1;
   NestedTwo nested = 2;
+  google.protobuf.Timestamp t = 3;
+  google.protobuf.Any a = 4;
 }
 
 message NestedTwo {

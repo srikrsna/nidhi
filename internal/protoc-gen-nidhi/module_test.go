@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/google/uuid"
 	jsoniter "github.com/json-iterator/go"
 	. "github.com/onsi/ginkgo"
@@ -18,8 +19,10 @@ import (
 	"gocloud.dev/postgres"
 	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/testing/protocmp"
 
 	fuzz "github.com/google/gofuzz"
+	"github.com/srikrsna/protoc-gen-fuzz/wkt"
 
 	"github.com/srikrsna/nidhi"
 	pb "github.com/srikrsna/nidhi/internal/protoc-gen-nidhi/test_data"
@@ -80,7 +83,7 @@ func TestQuery(t *testing.T) {
 }
 
 func TestJson(t *testing.T) {
-	fz := fuzz.New().Funcs(pbf.FuzzFuncs()...).NilChance(.5).NumElements(0, 70)
+	fz := fuzz.New().Funcs(pbf.FuzzFuncs()...).Funcs(wkt.FuzzWKT[:]...).NilChance(.5).NumElements(0, 70)
 	cfg := jsoniter.Config{
 		IndentionStep: 4,
 	}.Froze()
@@ -109,7 +112,7 @@ func TestJson(t *testing.T) {
 			return
 		}
 
-		if !proto.Equal(&act, &doc) {
+		if !cmp.Equal(&act, &doc, protocmp.Transform()) {
 			t.Errorf("mismatch after unmarshal, act: \n%v, exp: \n%v", prototext.Format(&act), prototext.Format(&doc))
 			return
 		}
@@ -121,7 +124,7 @@ var _ = Describe("Collection", func() {
 		db  *sql.DB
 		col *pb.AllCollection
 		ctx = context.TODO()
-		fz  = fuzz.New().Funcs(pbf.FuzzFuncs()...)
+		fz  = fuzz.New().Funcs(pbf.FuzzFuncs()...).Funcs(wkt.FuzzWKT[:]...)
 	)
 	BeforeSuite(func() {
 		var err error

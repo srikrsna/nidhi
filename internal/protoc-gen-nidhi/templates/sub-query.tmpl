@@ -12,6 +12,12 @@ type {{ $parent }}{{ $name }}Query interface {
 	{{ . | Name }}(*nidhi.StringQuery) {{ $root }}Conj
 {{- else if . | IsBool }}
 	{{ . | Name }}(*nidhi.BoolQuery) {{ $root }}Conj
+{{- else if . | IsWKT }}
+{{- if . | IsWKTTime }}
+	{{ . | Name }}(*nidhi.TimeQuery) {{ $root }}Conj
+{{- else if . | IsWKTAny }}{{- $gtype := . | GoType }}
+	{{ . | Name }}({{$gtype.Element}}) {{ $root }}Conj
+{{- end }}
 {{- else if .Type.IsRepeated }}{{- $gtype := . | GoType }}
 	{{ . | Name }}({{ with not .Type.Element.IsEmbed }}nidhi.SliceOptions,{{ end }} ...{{ $gtype.Element }}) {{ $root }}Conj
 {{- else if .Type.IsEmbed }}
@@ -43,6 +49,18 @@ func (q *{{ $lowerName }}Query) {{ . | Name }}(f *nidhi.BoolQuery) {{ $root }}Co
 	(*nidhi.Query)(q).Field("->'{{ .Name | LowerCamel }}')::bool", f)
 	return (*imp_{{ $root }}Query)(q)
 }
+{{ else if . | IsWKT }}
+	{{ if . | IsWKTTime }}
+func (q *{{ $lowerName }}Query) {{ . | Name }}(f *nidhi.TimeQuery) {{ $root }}Conj {
+	(*nidhi.Query)(q).Field("->'{{ .Name | LowerCamel }}')::timestamp", f)
+	return (*imp_{{ $root }}Query)(q)
+}
+	{{- else if . | IsWKTAny }}{{- $gtype := . | GoType }}
+func (q *{{ $lowerName }}Query) {{ . | Name }}(f {{ $gtype }}) {{ $root }}Conj {	
+	(*nidhi.Query)(q).Field("->'{{ .Name | LowerCamel }}')", nidhi.MarshalerQuery{nidhigen.ProtoMarshaler{f}})
+	return (*imp_{{ $root }}Query)(q)
+}	
+	{{ end }}
 	{{ else if .Type.IsRepeated }}{{- $gtype := . | GoType }}
 func (q *{{ $lowerName }}Query) {{ . | Name }}({{ with not .Type.Element.IsEmbed }}opt nidhi.SliceOptions,{{ end }} arr ...{{ $gtype.Element }}) {{ $root }}Conj {
 	(*nidhi.Query)(q).Field(

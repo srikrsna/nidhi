@@ -12,6 +12,7 @@ import (
 
 	"github.com/srikrsna/nidhi"
 	nidhigen "github.com/srikrsna/nidhi/nidhigen"
+	"google.golang.org/protobuf/types/known/anypb"
 )
 
 var (
@@ -21,6 +22,7 @@ var (
 	_ = jsoniter.Marshal
 	_ = nidhi.JSONB
 	_ = nidhigen.WriteString
+	_ = anypb.New
 )
 
 var ins_AllSchema = newAllSchema(" ("+nidhi.ColDoc)
@@ -45,7 +47,7 @@ type AllCollection struct {
 
 func OpenAllCollection(ctx context.Context, db *sql.DB) (*AllCollection, error) {
 	col, err := nidhi.OpenCollection(ctx, db, "pb", "alls", nidhi.CollectionOptions{
-		Fields: []string{ "id", "stringField", "int32Field", "int64Field", "uint32Field", "uint64Field", "floatField", "doubleField", "boolField", "bytesField", "primitiveRepeated", "stringOneOf", "int32OneOf", "int64OneOf", "uint32OneOf", "uint64OneOf", "floatOneOf", "doubleOneOf", "boolOneOf", "bytesOneOf", "simpleObjectOneOf", "simpleObjectField", "simpleRepeated", "nestedOne", "timestamp",  },
+		Fields: []string{ "id", "stringField", "int32Field", "int64Field", "uint32Field", "uint64Field", "floatField", "doubleField", "boolField", "bytesField", "primitiveRepeated", "stringOneOf", "int32OneOf", "int64OneOf", "uint32OneOf", "uint64OneOf", "floatOneOf", "doubleOneOf", "boolOneOf", "bytesOneOf", "simpleObjectOneOf", "simpleObjectField", "simpleRepeated", "nestedOne", "timestamp", "anyField",  },
 	})
 	if err != nil {
 		return nil, err
@@ -159,6 +161,7 @@ type AllQuery interface {
 	SimpleRepeated( ...*Simple) AllConj
 	NestedOne() AllNestedOneQuery
 	Timestamp(*nidhi.TimeQuery) AllConj
+	AnyField(*anypb.Any) AllConj
 
 	// Generic With Type Safety
 	Paren(iq isAllQuery) AllConj
@@ -306,6 +309,12 @@ func (q *imp_AllQuery) Timestamp(f *nidhi.TimeQuery) AllConj {
 }
 	
 	
+func (q *imp_AllQuery) AnyField(f *anypb.Any) AllConj {
+	(*nidhi.Query)(q).Field(" ("+nidhi.ColDoc+"->'anyField')", nidhi.MarshalerQuery{nidhigen.ProtoMarshaler{f}})
+	return q
+}	
+	
+	
 
 func (q *imp_AllQuery) Paren(iq isAllQuery) AllConj {
 	(*nidhi.Query)(q).Paren(iq)
@@ -367,6 +376,8 @@ func (q *imp_AllSimpleObjectFieldQuery) StringField(f *nidhi.StringQuery) AllCon
 type AllNestedOneQuery interface {
 	NestetedInt(*nidhi.IntQuery) AllConj
 	Nested() AllNestedOneNestedQuery
+	T(*nidhi.TimeQuery) AllConj
+	A(*anypb.Any) AllConj
 }
 
 type imp_AllNestedOneQuery nidhi.Query
@@ -380,6 +391,19 @@ func (q *imp_AllNestedOneQuery) Nested() AllNestedOneNestedQuery {
 	(*nidhi.Query)(q).Prefix("->'nested'")
 	return (*imp_AllNestedOneNestedQuery)(q)
 }
+	
+	
+func (q *imp_AllNestedOneQuery) T(f *nidhi.TimeQuery) AllConj {
+	(*nidhi.Query)(q).Field("->'t')::timestamp", f)
+	return (*imp_AllQuery)(q)
+}
+	
+	
+func (q *imp_AllNestedOneQuery) A(f *anypb.Any) AllConj {	
+	(*nidhi.Query)(q).Field("->'a')", nidhi.MarshalerQuery{nidhigen.ProtoMarshaler{f}})
+	return (*imp_AllQuery)(q)
+}	
+	
 	
 
 type AllNestedOneNestedQuery interface {
@@ -430,6 +454,7 @@ type allSchema struct {
     simpleRepeated string
 	nestedOne *nestedOneSchema
     timestamp string
+    anyField string
 }
 
 func newAllSchema(prefix string) *allSchema {
@@ -457,6 +482,7 @@ func newAllSchema(prefix string) *allSchema {
 	simpleRepeated: prefix+"->'simpleRepeated')",
 	nestedOne: newNestedOneSchema(prefix+"->'nestedOne'"),
 	timestamp: prefix+"->'timestamp')::timestamp",
+    anyField: prefix+"->'anyField')",
     }
 }
 func (s *allSchema) Id() nidhigen.StringField {
@@ -528,6 +554,9 @@ func (s *allSchema) NestedOne() *nestedOneSchema {
 func (s *allSchema) Timestamp() nidhigen.TimeField {
         return nidhigen.TimeField(s.timestamp)
     }
+func (s *allSchema) AnyField() nidhigen.UnorderedField {
+        return nidhigen.UnorderedField(s.anyField)
+    }
 
 
 func (doc *All) MarshalDocument(w *jsoniter.Stream) error {
@@ -555,6 +584,7 @@ func (doc *All) MarshalDocument(w *jsoniter.Stream) error {
     first = nidhigen.WriteMarshaler(w, "simpleRepeated",  SimpleSlice(doc.SimpleRepeated), first)
     first = nidhigen.WriteMarshaler(w, "nestedOne", doc.NestedOne, first)
 	first = nidhigen.WriteTimestamp(w, "timestamp", doc.Timestamp, first)
+	first = nidhigen.WriteAny(w, "anyField", doc.AnyField, first)
 	first = nidhigen.WriteOneOf(w, doc.OneOf, first)
 	w.WriteObjectEnd()
 
@@ -605,6 +635,8 @@ case "nestedOne":
 		r.Error = doc.NestedOne.UnmarshalDocument(r)
 case "timestamp":
 		doc.Timestamp = nidhigen.ReadTimestamp(r)
+case "anyField":
+		doc.AnyField = nidhigen.ReadAny(r)
 
 
 		case "stringOneOf":
@@ -832,12 +864,16 @@ func (s *SimpleSlice) UnmarshalDocument(r *jsoniter.Iterator) error {
 type nestedOneSchema struct {
     nestetedInt string
 	nested *nestedTwoSchema
+    t string
+    a string
 }
 
 func newNestedOneSchema(prefix string) *nestedOneSchema {
     return &nestedOneSchema {
 	nestetedInt: prefix+"->'nestetedInt')::bigint",
 	nested: newNestedTwoSchema(prefix+"->'nested'"),
+	t: prefix+"->'t')::timestamp",
+    a: prefix+"->'a')",
     }
 }
 func (s *nestedOneSchema) NestetedInt() nidhigen.IntField {
@@ -845,6 +881,12 @@ func (s *nestedOneSchema) NestetedInt() nidhigen.IntField {
     }
 func (s *nestedOneSchema) Nested() *nestedTwoSchema {
         return s.nested
+    }
+func (s *nestedOneSchema) T() nidhigen.TimeField {
+        return nidhigen.TimeField(s.t)
+    }
+func (s *nestedOneSchema) A() nidhigen.UnorderedField {
+        return nidhigen.UnorderedField(s.a)
     }
 
 
@@ -859,6 +901,8 @@ func (doc *NestedOne) MarshalDocument(w *jsoniter.Stream) error {
 	w.WriteObjectStart()
     first = nidhigen.WriteInt32(w, "nestetedInt", doc.NestetedInt, first)
     first = nidhigen.WriteMarshaler(w, "nested", doc.Nested, first)
+	first = nidhigen.WriteTimestamp(w, "t", doc.T, first)
+	first = nidhigen.WriteAny(w, "a", doc.A, first)
 	w.WriteObjectEnd()
 
 	return w.Error
@@ -875,6 +919,10 @@ func (doc *NestedOne) UnmarshalDocument(r *jsoniter.Iterator) error {
 case "nested":
 		doc.Nested = &NestedTwo{}
 		r.Error = doc.Nested.UnmarshalDocument(r)
+case "t":
+		doc.T = nidhigen.ReadTimestamp(r)
+case "a":
+		doc.A = nidhigen.ReadAny(r)
 
 		default:
 			r.Skip()

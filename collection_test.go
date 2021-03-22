@@ -5,8 +5,8 @@ import (
 	"database/sql"
 	"math/rand"
 	"sort"
+	"strconv"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"gocloud.dev/postgres"
@@ -16,9 +16,10 @@ import (
 
 var _ = Describe("Collection", func() {
 	var (
-		db  *sql.DB
-		col *nidhi.Collection
-		ctx = context.TODO()
+		db    *sql.DB
+		col   *nidhi.Collection
+		ctx   = context.TODO()
+		count = 0
 	)
 	BeforeSuite(func() {
 		var err error
@@ -40,7 +41,8 @@ var _ = Describe("Collection", func() {
 	Context("single document operations", func() {
 		var doc testDoc
 		BeforeEach(func() {
-			doc = testDoc{Id: uuid.New().String(), Number: rand.Int()}
+			doc = testDoc{Id: strconv.Itoa(count), Number: rand.Int()}
+			count++
 			Expect(col.Create(ctx, &doc, nil)).To(Equal(doc.Id))
 		})
 
@@ -103,7 +105,8 @@ var _ = Describe("Collection", func() {
 			aboveMarker = make([]*testDoc, 0, len(docs))
 
 			for i := range docs {
-				docs[i] = &testDoc{Id: uuid.New().String(), Number: rand.Int() % 10}
+				docs[i] = &testDoc{Id: strconv.Itoa(count), Number: rand.Int() % 10}
+				count++
 				Expect(col.Create(ctx, docs[i], nil)).To(Equal(docs[i].Id))
 				if docs[i].Number > marker {
 					aboveMarker = append(aboveMarker, docs[i])
@@ -147,11 +150,12 @@ var _ = Describe("Collection", func() {
 		Context("Pagination", func() {
 
 			It("has more", func() {
-				sort.Sort(byId(aboveMarker))
+				sort.Sort(byNumber(aboveMarker))
 				exp := aboveMarker[:len(aboveMarker)-2]
 				po := &nidhi.PaginationOptions{}
 				po.Limit = uint64(len(exp))
 				po.Cursor = ""
+				po.OrderBy = []nidhi.OrderBy{{Field: nidhi.OrderByInt("(" + nidhi.ColDoc + "->'Number')::bigint")}}
 				act, err := qf(nidhi.WithQueryOptions(nidhi.QueryOptions{PaginationOptions: po}))
 				Expect(err).To(BeNil())
 				Expect(act).To(Equal(exp))
@@ -166,13 +170,14 @@ var _ = Describe("Collection", func() {
 						Backward: backward,
 						Limit:    1,
 						Cursor:   cursor,
+						OrderBy:  []nidhi.OrderBy{{Field: nidhi.OrderByInt("(" + nidhi.ColDoc + "->'Number')::bigint")}},
 					}
 					pr, err := qf(nidhi.WithPaginationOptions(po))
 					Expect(err).To(BeNil())
 					Expect(len(pr)).To(Equal(1))
 					act = append(act, pr...)
 
-					cursor = pr[0].Id
+					cursor = po.NextCursor
 
 					if !po.HasMore {
 						break
@@ -201,6 +206,7 @@ var _ = Describe("Collection", func() {
 				exp := aboveMarker
 				po.Limit = uint64(len(exp))
 				po.Cursor = ""
+				po.OrderBy = []nidhi.OrderBy{{Field: nidhi.OrderByInt("(" + nidhi.ColDoc + "->'Number')::bigint")}}
 				_, err := qf(nidhi.WithQueryOptions(nidhi.QueryOptions{PaginationOptions: po}))
 				Expect(err).To(BeNil())
 				Expect(po.HasMore).To(BeFalse())

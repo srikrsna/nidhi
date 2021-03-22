@@ -2,14 +2,16 @@ package pgn_test
 
 import (
 	"fmt"
-	"sort"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/testing/protocmp"
 
 	pb "github.com/srikrsna/nidhi/internal/protoc-gen-nidhi/test_data"
 )
@@ -49,7 +51,7 @@ func (matcher *protoEqual) Match(actual interface{}) (success bool, err error) {
 		return false, fmt.Errorf("ProtoEqual matcher expects a proto.Message")
 	}
 
-	return proto.Equal(response, matcher.expected), nil
+	return cmp.Equal(matcher.expected, response, protocmp.Transform()), nil
 }
 
 func (matcher *protoEqual) FailureMessage(actual interface{}) (message string) {
@@ -77,20 +79,9 @@ func (matcher *allSliceEqual) Match(actual interface{}) (success bool, err error
 		return false, fmt.Errorf("ProtoEqual matcher expects a proto.Message")
 	}
 
-	sort.Sort(byId(response))
-	sort.Sort(byId(matcher.expected))
+	sop := cmpopts.SortSlices(func(x *pb.All, y *pb.All) bool { return x.GetId() < y.GetId() })
 
-	if len(response) != len(matcher.expected) {
-		return false, nil
-	}
-
-	for i := range response {
-		if !proto.Equal(response[i], matcher.expected[i]) {
-			return false, nil
-		}
-	}
-
-	return true, nil
+	return cmp.Equal(response, matcher.expected, sop, protocmp.Transform()), nil
 }
 
 func (matcher *allSliceEqual) FailureMessage(actual interface{}) (message string) {
