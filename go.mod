@@ -5,7 +5,7 @@ go 1.16
 require (
 	github.com/elgris/sqrl v0.0.0-20190909141434-5a439265eeec
 	github.com/gertd/go-pluralize v0.1.7
-	github.com/google/go-cmp v0.5.5 // indirect
+	github.com/google/go-cmp v0.5.5
 	github.com/google/gofuzz v1.2.0
 	github.com/google/uuid v1.1.2
 	github.com/json-iterator/go v1.1.10
