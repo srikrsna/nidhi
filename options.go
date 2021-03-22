@@ -1,12 +1,12 @@
 package nidhi
 
 type CollectionOptions struct {
-	SubjectFunc SubjectFunc
-
 	Fields []string
 }
 
 type CreateOptions struct {
+	CreateMetadata  Metadata
+	ReplaceMetadata Metadata
 	// Replace will replace the document if it exists otherwise it will throw an error.
 	Replace bool
 }
@@ -19,7 +19,20 @@ func WithCreateOptions(o CreateOptions) CreateOption {
 	}
 }
 
+func WithCreateMetadataCreateOptions(mm ...MetadataMarshaler) CreateOption {
+	return func(co *CreateOptions) {
+		co.CreateMetadata = append(co.CreateMetadata, mm...)
+	}
+}
+
+func WithReplaceMetadataReplaceOptions(mm ...MetadataMarshaler) CreateOption {
+	return func(co *CreateOptions) {
+		co.ReplaceMetadata = append(co.ReplaceMetadata, mm...)
+	}
+}
+
 type DeleteOptions struct {
+	Metadata  Metadata
 	Permanent bool
 }
 
@@ -28,6 +41,12 @@ type DeleteOption func(*DeleteOptions)
 func WithDeleteOptions(o DeleteOptions) DeleteOption {
 	return func(opt *DeleteOptions) {
 		*opt = o
+	}
+}
+
+func WithMetadataDeleteOptions(mm ...MetadataMarshaler) DeleteOption {
+	return func(do *DeleteOptions) {
+		do.Metadata = append(do.Metadata, mm...)
 	}
 }
 
@@ -92,6 +111,7 @@ func WithGetViewMask(vm []string) GetOption {
 }
 
 type ReplaceOptions struct {
+	Metadata Metadata
 	Revision int64
 }
 
@@ -103,7 +123,14 @@ func WithReplaceOptions(o ReplaceOptions) ReplaceOption {
 	}
 }
 
+func WithMetadataReplaceOptions(mm ...MetadataMarshaler) ReplaceOption {
+	return func(ro *ReplaceOptions) {
+		ro.Metadata = append(ro.Metadata, mm...)
+	}
+}
+
 type UpdateOptions struct {
+	Metadata Metadata
 }
 
 type UpdateOption func(*UpdateOptions)
@@ -111,5 +138,11 @@ type UpdateOption func(*UpdateOptions)
 func WithUpdateOptions(o UpdateOptions) UpdateOption {
 	return func(uo *UpdateOptions) {
 		*uo = o
+	}
+}
+
+func WithMetadataUpdateOptions(mm ...MetadataMarshaler) UpdateOption {
+	return func(uo *UpdateOptions) {
+		uo.Metadata = append(uo.Metadata, mm...)
 	}
 }
