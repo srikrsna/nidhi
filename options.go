@@ -53,7 +53,7 @@ func WithDeleteMetadata(mm ...MetadataMarshaler) DeleteOption {
 type QueryOptions struct {
 	PaginationOptions *PaginationOptions
 	ViewMask          []string
-	CreateMetadata    []CreateMetadataFunc
+	CreateMetadata    []func() MetadataUnmarshaler
 }
 
 type QueryOption func(*QueryOptions)
@@ -76,7 +76,7 @@ func WithPaginationOptions(po *PaginationOptions) QueryOption {
 	}
 }
 
-func WithQueryCreateMetadata(mcf ...CreateMetadataFunc) QueryOption {
+func WithQueryCreateMetadata(mcf ...func() MetadataUnmarshaler) QueryOption {
 	return func(qo *QueryOptions) {
 		qo.CreateMetadata = append(qo.CreateMetadata, mcf...)
 	}

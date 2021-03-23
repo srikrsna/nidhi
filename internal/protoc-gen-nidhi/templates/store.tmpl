@@ -23,16 +23,9 @@ func Open{{ $name }}Collection(ctx context.Context, db *sql.DB, mdps ...*nidhi.M
 	if err != nil {
 		return nil, err
 	}
-	var col nidhigen.Collection = ogCol
-	mdk := map[string]bool{}
-	for _, mdp := range mdps {
-		for _, k := range mdp.Keys {
-			if mdk[k] {
-				return nil, nidhi.DuplicateMetadataKeys
-			}
-			mdk[k] = true
-		}
-		col = mdp.Wrapper(col)
+	col, err := nidhi.WrapMetadataProviders(ogCol, mdps)
+	if err != nil {
+		return nil, err
 	}
 	return &{{ $name }}Collection{
 		&{{ $lowerName }}Collection{col: col},

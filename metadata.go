@@ -6,7 +6,7 @@ import (
 	jsoniter "github.com/json-iterator/go"
 )
 
-type MetadataCollection interface {
+type Interface interface {
 	Create(ctx context.Context, doc Document, ops []CreateOption) (string, error)
 	Replace(ctx context.Context, doc Document, ops []ReplaceOption) error
 	Update(ctx context.Context, doc Document, f Sqlizer, ops []UpdateOption) error
@@ -17,8 +17,23 @@ type MetadataCollection interface {
 }
 
 type MetadataProvider struct {
-	Wrapper func(col MetadataCollection) MetadataCollection
+	Wrap func(col Interface) Interface
 	Keys    []string
+}
+
+func WrapMetadataProviders(col Interface, mdps []*MetadataProvider) (Interface, error) {
+	mdk := map[string]bool{}
+	for _, mdp := range mdps {
+		for _, k := range mdp.Keys {
+			if mdk[k] {
+				return nil, DuplicateMetadataKeys
+			}
+			mdk[k] = true
+		}
+		col = mdp.Wrap(col)
+	}
+
+	return col, nil
 }
 
 type MetadataUnmarshaler interface {
@@ -28,8 +43,6 @@ type MetadataUnmarshaler interface {
 type MetadataMarshaler interface {
 	MarshalMetadata(w *jsoniter.Stream) error
 }
-
-type CreateMetadataFunc func() MetadataUnmarshaler
 
 type mdMarshaler []MetadataMarshaler
 

@@ -20,10 +20,10 @@ const (
 func Provider(subjectFunc SubjectFunc) *nidhi.MetadataProvider {
 	return &nidhi.MetadataProvider{
 		Keys: []string{CreatedKey, UpdatedKey, DeletedKey},
-		Wrapper: func(col nidhi.MetadataCollection) nidhi.MetadataCollection {
+		Wrap: func(col nidhi.Interface) nidhi.Interface {
 			return &provider{
 				SubjectFunc: subjectFunc,
-				Col:         col,
+				Interface:   col,
 			}
 		},
 	}
@@ -140,40 +140,32 @@ func (log *ActivityLog) UnmarshalDocument(r *jsoniter.Iterator) error {
 
 type provider struct {
 	SubjectFunc SubjectFunc
-	Col         nidhi.MetadataCollection
+	nidhi.Interface
 }
 
 func (p *provider) Create(ctx context.Context, doc nidhi.Document, ops []nidhi.CreateOption) (string, error) {
 	ops = append(ops, nidhi.WithCreateCreateMetadata(&Metadata{Created: p.activityLog(ctx)}), nidhi.WithCreateReplaceMetadata(&Metadata{Updated: p.activityLog(ctx)}))
-	return p.Col.Create(ctx, doc, ops)
+	return p.Interface.Create(ctx, doc, ops)
 }
 
 func (p *provider) Replace(ctx context.Context, doc nidhi.Document, ops []nidhi.ReplaceOption) error {
 	ops = append(ops, nidhi.WithReplaceMetadata(&Metadata{Updated: p.activityLog(ctx)}))
-	return p.Col.Replace(ctx, doc, ops)
+	return p.Interface.Replace(ctx, doc, ops)
 }
 
 func (p *provider) Update(ctx context.Context, doc nidhi.Document, f nidhi.Sqlizer, ops []nidhi.UpdateOption) error {
 	ops = append(ops, nidhi.WithUpdateMetadata(&Metadata{Updated: p.activityLog(ctx)}))
-	return p.Col.Update(ctx, doc, f, ops)
+	return p.Interface.Update(ctx, doc, f, ops)
 }
 
 func (p *provider) Delete(ctx context.Context, id string, ops []nidhi.DeleteOption) error {
 	ops = append(ops, nidhi.WithDeleteMetadata(&Metadata{Deleted: p.activityLog(ctx)}))
-	return p.Col.Delete(ctx, id, ops)
+	return p.Interface.Delete(ctx, id, ops)
 }
 
 func (p *provider) DeleteMany(ctx context.Context, f nidhi.Sqlizer, ops []nidhi.DeleteOption) error {
 	ops = append(ops, nidhi.WithDeleteMetadata(&Metadata{Deleted: p.activityLog(ctx)}))
-	return p.Col.DeleteMany(ctx, f, ops)
-}
-
-func (p *provider) Query(ctx context.Context, f nidhi.Sqlizer, ctr func() nidhi.Document, ops []nidhi.QueryOption) error {
-	return p.Col.Query(ctx, f, ctr, ops)
-}
-
-func (p *provider) Get(ctx context.Context, id string, doc nidhi.Unmarshaler, ops []nidhi.GetOption) error {
-	return p.Col.Get(ctx, id, doc, ops)
+	return p.Interface.DeleteMany(ctx, f, ops)
 }
 
 func (p *provider) activityLog(ctx context.Context) *ActivityLog {
