@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/uuid"
@@ -20,6 +21,7 @@ import (
 	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/testing/protocmp"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	fuzz "github.com/google/gofuzz"
 	"github.com/srikrsna/protoc-gen-fuzz/wkt"
@@ -203,6 +205,7 @@ var _ = Describe("Collection", func() {
 
 	Context("multi document operations", func() {
 		var (
+			ct          = time.Unix(time.Now().Add(-time.Second).Unix(), 0)
 			docs        []*pb.All
 			aboveMarker []*pb.All
 		)
@@ -218,6 +221,7 @@ var _ = Describe("Collection", func() {
 				fz.Fuzz(&doc)
 				doc.Id = strconv.Itoa(i)
 				docs[i] = &doc
+				docs[i].Timestamp = timestamppb.New(ct)
 				Expect(col.CreateAll(ctx, docs[i])).To(Equal(docs[i].Id))
 				if docs[i].Int32Field > marker {
 					aboveMarker = append(aboveMarker, docs[i])
@@ -243,6 +247,11 @@ var _ = Describe("Collection", func() {
 		It("returns results based on a query", func() {
 			exp := aboveMarker
 			qfe(exp)
+		})
+
+		It("returns values based on a subquery of time", func() {
+			exp := docs
+			Expect(col.QueryAlls(ctx, pb.GetAllQuery().Timestamp(&nidhi.TimeQuery{Eq: &ct}))).To(AllSliceEqual(exp))
 		})
 
 		It("returns results with a partial view based on a query", func() {
@@ -370,6 +379,22 @@ var _ = Describe("Collection", func() {
 				var mdc activitylogs.Creator
 				qfe(exp, nidhi.WithQueryCreateMetadata(mdc.Create))
 				Expect(len(mdc.Values)).To(Equal(len(exp)))
+			})
+
+			It("Fetches all with md user query", func() {
+				exp := docs
+				act, err := col.QueryAlls(ctx, pb.GetAllQuery().WhereMetadata(
+					activitylogs.CreatedBy("srikrsna"),
+				))
+				Expect(act, err).To(AllSliceEqual(exp))
+			})
+
+			It("Fetches all with md time query", func() {
+				exp := docs
+				act, err := col.QueryAlls(ctx, pb.GetAllQuery().WhereMetadata(
+					activitylogs.CreatedAfter(ct),
+				))
+				Expect(act, err).To(AllSliceEqual(exp))
 			})
 		})
 	})

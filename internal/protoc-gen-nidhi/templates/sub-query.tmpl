@@ -52,7 +52,7 @@ func (q *{{ $lowerName }}Query) {{ . | Name }}(f *nidhi.BoolQuery) {{ $root }}Co
 {{ else if . | IsWKT }}
 	{{ if . | IsWKTTime }}
 func (q *{{ $lowerName }}Query) {{ . | Name }}(f *nidhi.TimeQuery) {{ $root }}Conj {
-	(*nidhi.Query)(q).Field("->'{{ .Name | LowerCamel }}')::timestamp", f)
+	(*nidhi.Query)(q).Field("->>'{{ .Name | LowerCamel }}')::timestamp", f)
 	return (*imp_{{ $root }}Query)(q)
 }
 	{{- else if . | IsWKTAny }}{{- $gtype := . | GoType }}

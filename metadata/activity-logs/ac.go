@@ -4,6 +4,7 @@ package activitylogs
 import (
 	"context"
 	"errors"
+	"io"
 	"time"
 
 	jsoniter "github.com/json-iterator/go"
@@ -138,6 +139,40 @@ func (log *ActivityLog) UnmarshalDocument(r *jsoniter.Iterator) error {
 	return r.Error
 }
 
+type MetadataQuery struct {
+	Created, Updated, Deleted *ActivityLogQuery
+}
+
+func (q *MetadataQuery) ToQuery(name string, sb io.StringWriter, args *[]interface{}) error {
+	switch {
+	case q.Created != nil:
+		return q.Created.ToQuery(name+"->'"+CreatedKey+"'", sb, args)
+	case q.Updated != nil:
+		return q.Updated.ToQuery(name+"->'"+UpdatedKey+"'", sb, args)
+	case q.Deleted != nil:
+		return q.Deleted.ToQuery(name+"->'"+DeletedKey+"'", sb, args)
+	}
+
+	return nil
+}
+
+type ActivityLogQuery struct {
+	On *nidhi.TimeQuery
+	By *nidhi.StringQuery
+}
+
+func (q *ActivityLogQuery) ToQuery(name string, sb io.StringWriter, args *[]interface{}) error {
+	if q.On != nil {
+		return q.On.ToQuery(name+"->>'on')::timestamp", sb, args)
+	}
+
+	if q.By != nil {
+		return q.By.ToQuery(name+"->>'by')", sb, args)
+	}
+
+	return nil
+}
+
 type provider struct {
 	SubjectFunc SubjectFunc
 	nidhi.Interface
@@ -170,4 +205,183 @@ func (p *provider) DeleteMany(ctx context.Context, f nidhi.Sqlizer, ops []nidhi.
 
 func (p *provider) activityLog(ctx context.Context) *ActivityLog {
 	return &ActivityLog{On: time.Now(), By: p.SubjectFunc(ctx)}
+}
+
+func CreatedOnAfter(t time.Time) *MetadataQuery {
+	return &MetadataQuery{
+		Created: &ActivityLogQuery{
+			On: &nidhi.TimeQuery{
+				Gte: &t,
+			},
+		},
+	}
+}
+
+func CreatedAfter(t time.Time) *MetadataQuery {
+	return &MetadataQuery{
+		Created: &ActivityLogQuery{
+			On: &nidhi.TimeQuery{
+				Gt: &t,
+			},
+		},
+	}
+}
+
+func CreatedOn(t time.Time) *MetadataQuery {
+	return &MetadataQuery{
+		Created: &ActivityLogQuery{
+			On: &nidhi.TimeQuery{
+				Eq: &t,
+			},
+		},
+	}
+}
+
+func CreatedOnBefore(t time.Time) *MetadataQuery {
+	return &MetadataQuery{
+		Created: &ActivityLogQuery{
+			On: &nidhi.TimeQuery{
+				Lte: &t,
+			},
+		},
+	}
+}
+
+func CreatedBefore(t time.Time) *MetadataQuery {
+	return &MetadataQuery{
+		Created: &ActivityLogQuery{
+			On: &nidhi.TimeQuery{
+				Lt: &t,
+			},
+		},
+	}
+}
+
+func UpdatedOnAfter(t time.Time) *MetadataQuery {
+	return &MetadataQuery{
+		Updated: &ActivityLogQuery{
+			On: &nidhi.TimeQuery{
+				Gte: &t,
+			},
+		},
+	}
+}
+
+func UpdatedAfter(t time.Time) *MetadataQuery {
+	return &MetadataQuery{
+		Updated: &ActivityLogQuery{
+			On: &nidhi.TimeQuery{
+				Gt: &t,
+			},
+		},
+	}
+}
+
+func UpdatedOn(t time.Time) *MetadataQuery {
+	return &MetadataQuery{
+		Updated: &ActivityLogQuery{
+			On: &nidhi.TimeQuery{
+				Eq: &t,
+			},
+		},
+	}
+}
+
+func UpdatedOnBefore(t time.Time) *MetadataQuery {
+	return &MetadataQuery{
+		Updated: &ActivityLogQuery{
+			On: &nidhi.TimeQuery{
+				Lte: &t,
+			},
+		},
+	}
+}
+
+func UpdatedBefore(t time.Time) *MetadataQuery {
+	return &MetadataQuery{
+		Updated: &ActivityLogQuery{
+			On: &nidhi.TimeQuery{
+				Lt: &t,
+			},
+		},
+	}
+}
+
+func DeletedOnAfter(t time.Time) *MetadataQuery {
+	return &MetadataQuery{
+		Deleted: &ActivityLogQuery{
+			On: &nidhi.TimeQuery{
+				Gte: &t,
+			},
+		},
+	}
+}
+
+func DeletedAfter(t time.Time) *MetadataQuery {
+	return &MetadataQuery{
+		Deleted: &ActivityLogQuery{
+			On: &nidhi.TimeQuery{
+				Gt: &t,
+			},
+		},
+	}
+}
+
+func DeletedOn(t time.Time) *MetadataQuery {
+	return &MetadataQuery{
+		Deleted: &ActivityLogQuery{
+			On: &nidhi.TimeQuery{
+				Eq: &t,
+			},
+		},
+	}
+}
+
+func DeletedOnBefore(t time.Time) *MetadataQuery {
+	return &MetadataQuery{
+		Deleted: &ActivityLogQuery{
+			On: &nidhi.TimeQuery{
+				Lte: &t,
+			},
+		},
+	}
+}
+
+func DeletedBefore(t time.Time) *MetadataQuery {
+	return &MetadataQuery{
+		Deleted: &ActivityLogQuery{
+			On: &nidhi.TimeQuery{
+				Lt: &t,
+			},
+		},
+	}
+}
+
+func CreatedBy(l string) *MetadataQuery {
+	return &MetadataQuery{
+		Created: &ActivityLogQuery{
+			By: &nidhi.StringQuery{
+				Eq: &l,
+			},
+		},
+	}
+}
+
+func UpdatedBy(l string) *MetadataQuery {
+	return &MetadataQuery{
+		Updated: &ActivityLogQuery{
+			By: &nidhi.StringQuery{
+				Eq: &l,
+			},
+		},
+	}
+}
+func DeletedBy(l string) *MetadataQuery {
+	return &MetadataQuery{
+		Deleted: &ActivityLogQuery{
+			By: &nidhi.StringQuery{
+				Eq: &l,
+			},
+		},
+	}
 }

@@ -387,7 +387,6 @@ func WriteStringSliceOneOf(w *jsoniter.Stream, field string, value []string) {
 func WriteBoolOneOf(w *jsoniter.Stream, field string, value bool) {
 	w.WriteObjectField(field)
 	w.WriteBool(value)
-
 }
 
 func WriteBoolSliceOneOf(w *jsoniter.Stream, field string, value []bool) {
@@ -472,7 +471,6 @@ func WriteIntSliceOneOf(w *jsoniter.Stream, field string, value []int) {
 		w.WriteInt(v)
 	}
 	w.WriteArrayEnd()
-
 }
 
 func WriteFloat32OneOf(w *jsoniter.Stream, field string, value float32) {
@@ -539,7 +537,6 @@ func WriteInt32SliceOneOf(w *jsoniter.Stream, field string, value []int32) {
 		w.WriteInt32(v)
 	}
 	w.WriteArrayEnd()
-
 }
 
 func WriteInt64OneOf(w *jsoniter.Stream, field string, value int64) {
@@ -631,7 +628,6 @@ func WriteMarshalerOneOf(w *jsoniter.Stream, field string, value nidhi.Marshaler
 	}
 
 	w.Error = value.MarshalDocument(w)
-
 }
 
 func WriteBytesOneOf(w *jsoniter.Stream, field string, value []byte) {

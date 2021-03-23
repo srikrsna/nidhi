@@ -27,7 +27,7 @@ func new{{ . | Name }}Schema(prefix string) *{{ $schemaImp }} {
 	{{ . | Name | LowerCamel }}: prefix+"->'{{ .Name | LowerCamel }}')::bool",
 {{- else if . | IsWKT }}
     {{- if . | IsWKTTime }}
-	{{ . | Name | LowerCamel }}: prefix+"->'{{ .Name | LowerCamel }}')::timestamp",
+	{{ . | Name | LowerCamel }}: prefix+"->>'{{ .Name | LowerCamel }}')::timestamp",
     {{- else if . | IsWKTAny }}
     {{ . | Name | LowerCamel }}: prefix+"->'{{ .Name | LowerCamel }}')",
     {{- end }}

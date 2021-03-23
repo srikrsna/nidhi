@@ -13,6 +13,10 @@ import (
 
 type Sqlizer = sq.Sqlizer
 
+type Queryer interface {
+	ToQuery(string, io.StringWriter, *[]interface{}) error
+}
+
 var queryPool = sync.Pool{
 	New: func() interface{} {
 		return new(Query)
@@ -62,6 +66,10 @@ func (q *Query) Where(query string, args ...interface{}) {
 	q.args = append(q.args, args...)
 }
 
+func (q *Query) WhereMetadata(f Queryer) {
+	q.Field("("+ColMeta, f)
+}
+
 func (q *Query) Not() {
 	q.query.WriteString(" NOT")
 }
@@ -74,9 +82,7 @@ func (q *Query) Or() {
 	q.query.WriteString(" OR")
 }
 
-func (q *Query) Field(name string, f interface {
-	ToQuery(string, io.StringWriter, *[]interface{}) error
-}) {
+func (q *Query) Field(name string, f Queryer) {
 	if err := f.ToQuery(name, &q.query, &q.args); err != nil {
 		q.err = err
 	}
