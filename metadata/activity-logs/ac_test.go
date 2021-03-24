@@ -1,4 +1,4 @@
-package nidhi_test
+package activitylogs_test
 
 import (
 	"encoding/json"
@@ -8,11 +8,28 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/uuid"
 	jsoniter "github.com/json-iterator/go"
-	"github.com/srikrsna/nidhi"
+
+	activitylogs "github.com/srikrsna/nidhi/metadata/activity-logs"
 )
 
+func TestMetadata_MarshalMetadata(t *testing.T) {
+	md := &activitylogs.Metadata{Created: &activitylogs.ActivityLog{}}
+
+	w := jsoniter.ConfigDefault.BorrowStream(nil)
+	defer jsoniter.ConfigDefault.ReturnStream(w)
+	w.WriteObjectStart()
+	if err := md.MarshalMetadata(w); err != nil {
+		t.Fatal(err)
+	}
+	w.WriteObjectEnd()
+
+	if !json.Valid(w.Buffer()) {
+		t.Fatalf("invalid json: %s", string(w.Buffer()))
+	}
+}
+
 func TestActivityLog_MarshalDocument(t *testing.T) {
-	log := &nidhi.ActivityLog{
+	log := &activitylogs.ActivityLog{
 		On: time.Now(),
 		By: uuid.New().String(),
 	}
@@ -25,7 +42,7 @@ func TestActivityLog_MarshalDocument(t *testing.T) {
 		return
 	}
 
-	var act nidhi.ActivityLog
+	var act activitylogs.ActivityLog
 	if err := json.Unmarshal(w.Buffer(), &act); err != nil {
 		t.Fatal(err)
 	}
@@ -36,15 +53,14 @@ func TestActivityLog_MarshalDocument(t *testing.T) {
 }
 
 func TestActivityLog_UnmarshalDocument(t *testing.T) {
-
-	buf, _ := json.Marshal(&nidhi.ActivityLog{
+	buf, _ := json.Marshal(&activitylogs.ActivityLog{
 		On: time.Now(),
 		By: uuid.New().String(),
 	})
 
 	var (
-		exp nidhi.ActivityLog
-		act nidhi.ActivityLog
+		exp activitylogs.ActivityLog
+		act activitylogs.ActivityLog
 	)
 
 	if err := json.Unmarshal(buf, &exp); err != nil {

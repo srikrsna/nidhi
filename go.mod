@@ -16,5 +16,3 @@ require (
 	gocloud.dev v0.20.0
 	google.golang.org/protobuf v1.26.0
 )
-
-replace github.com/srikrsna/protoc-gen-fuzz/wkt => ../protoc-gen-fuzz/wkt

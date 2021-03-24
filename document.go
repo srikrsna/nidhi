@@ -83,3 +83,11 @@ type NoopUnmarshaler struct {
 func (NoopUnmarshaler) UnmarshalDocument(_ *jsoniter.Iterator) error {
 	return nil
 }
+
+type NoopMarshaler struct {
+	Unmarshaler
+}
+
+func (NoopMarshaler) MarshalDocument(w *jsoniter.Stream) error {
+	return nil
+}

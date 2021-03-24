@@ -16,12 +16,12 @@ func OpenCollection(ctx context.Context, db *sql.DB, schema, name string, opts C
 	if _, err := db.ExecContext(ctx, `CREATE SCHEMA IF NOT EXISTS `+schema); err != nil {
 		return nil, fmt.Errorf("nidhi: unable to open collection: %s, err: %w", name, err)
 	}
-	const query = `CREATE TABLE IF NOT EXISTS %s.%s (id TEXT NOT NULL PRIMARY KEY, revision bigint NOT NULL, document JSONB NOT NULL, metadata JSONB NOT NULL DEFAULT '{}')`
+	const query = `CREATE TABLE IF NOT EXISTS %s.%s (id TEXT NOT NULL PRIMARY KEY, revision bigint NOT NULL, document JSONB NOT NULL, deleted BOOLEAN NOT NULL DEFAULT false, metadata JSONB NOT NULL DEFAULT '{}')`
 	if _, err := db.ExecContext(ctx, fmt.Sprintf(query, schema, name)); err != nil {
 		return nil, fmt.Errorf("nidhi: unable to open collection: %s, err: %w", name, err)
 	}
 
-	return &Collection{&collection{table: schema + "." + name, tx: db, subFunc: opts.SubjectFunc, fields: opts.Fields}, db}, nil
+	return &Collection{&collection{table: schema + "." + name, tx: db, fields: opts.Fields}, db}, nil
 }
 
 func (c *Collection) BeginTx(ctx context.Context, opt *sql.TxOptions) (*TxCollection, error) {

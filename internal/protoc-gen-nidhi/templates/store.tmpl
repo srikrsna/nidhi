@@ -16,16 +16,20 @@ type {{ $name }}Collection struct {
 	ogCol *nidhi.Collection
 }
 
-func Open{{ $name }}Collection(ctx context.Context, db *sql.DB) (*{{ $name }}Collection, error) {
-	col, err := nidhi.OpenCollection(ctx, db, "{{ .Package | Name }}", "{{ $lowerName | Plural }}", nidhi.CollectionOptions{
+func Open{{ $name }}Collection(ctx context.Context, db *sql.DB, mdps ...*nidhi.MetadataProvider) (*{{ $name }}Collection, error) {
+	ogCol, err := nidhi.OpenCollection(ctx, db, "{{ .Package | Name }}", "{{ $lowerName | Plural }}", nidhi.CollectionOptions{
 		Fields: []string{ {{ . | Fields }} },
 	})
 	if err != nil {
 		return nil, err
 	}
+	col, err := nidhi.WrapMetadataProviders(ogCol, mdps)
+	if err != nil {
+		return nil, err
+	}
 	return &{{ $name }}Collection{
 		&{{ $lowerName }}Collection{col: col},
-		col,
+		ogCol,
 	}, nil
 }
 

@@ -35,6 +35,7 @@ type {{ $name }}Query interface {
 	// Generic With Type Safety
 	Paren(iq is{{ $name }}Query) {{ $name }}Conj
 	Where(query string, args ...interface{}) {{ $name }}Conj
+	WhereMetadata(nidhi.Queryer) {{ $name }}Conj
 	Not() {{ $name }}Query
 	ReplaceArgs(args ...interface{}) error
 }
@@ -83,7 +84,7 @@ func (q *{{ $lowerName }}Query) {{ . | Name }}(f *nidhi.BoolQuery) {{ $name }}Co
 	{{ else if . | IsWKT }}
 	{{ if . | IsWKTTime }}
 func (q *{{ $lowerName }}Query) {{ . | Name }}(f *nidhi.TimeQuery) {{ $name }}Conj {
-	(*nidhi.Query)(q).Field(" ("+nidhi.ColDoc+"->'{{ .Name | LowerCamel }}')::timestamp", f)
+	(*nidhi.Query)(q).Field(" ("+nidhi.ColDoc+"->>'{{ .Name | LowerCamel }}')::timestamp", f)
 	return q
 }
 	{{- else if . | IsWKTAny }}{{- $gtype := . | GoType }}
@@ -124,6 +125,11 @@ func (q *{{ $lowerName }}Query) Paren(iq is{{ $name }}Query) {{ $name }}Conj {
 
 func (q *{{ $lowerName }}Query) Where(query string, args ...interface{}) {{ $name }}Conj {
 	(*nidhi.Query)(q).Where(query, args...)
+	return q
+}
+
+func (q *{{ $lowerName }}Query) WhereMetadata(f nidhi.Queryer) {{ $name }}Conj {
+	(*nidhi.Query)(q).WhereMetadata(f)
 	return q
 }
 

@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/uuid"
@@ -20,6 +21,7 @@ import (
 	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/testing/protocmp"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	fuzz "github.com/google/gofuzz"
 	"github.com/srikrsna/protoc-gen-fuzz/wkt"
@@ -27,13 +29,14 @@ import (
 	"github.com/srikrsna/nidhi"
 	pb "github.com/srikrsna/nidhi/internal/protoc-gen-nidhi/test_data"
 	pbf "github.com/srikrsna/nidhi/internal/protoc-gen-nidhi/test_data/fuzz"
+	activitylogs "github.com/srikrsna/nidhi/metadata/activity-logs"
 )
 
 func TestQuery(t *testing.T) {
 	type row struct {
 		Name  string
 		Query nidhi.Sqlizer
-		Sql   string
+		SQL   string
 		Args  []interface{}
 	}
 
@@ -41,38 +44,38 @@ func TestQuery(t *testing.T) {
 		{
 			Name:  "Simple String",
 			Query: pb.GetAllQuery().StringField(&nidhi.StringQuery{Eq: nidhi.String("Yes")}),
-			Sql:   nidhi.ColDoc + `->>'stringField' = ?`,
+			SQL:   nidhi.ColDoc + `->>'stringField' = ?`,
 			Args:  []interface{}{"Yes"},
 		},
 		{
 			Name:  "Simple Int",
 			Query: pb.GetAllQuery().Int32Field(&nidhi.IntQuery{Eq: nidhi.Int64(1)}),
-			Sql:   "(" + nidhi.ColDoc + `->'int32Field')::bigint = ?`,
+			SQL:   "(" + nidhi.ColDoc + `->'int32Field')::bigint = ?`,
 			Args:  []interface{}{int64(1)},
 		},
 		{
 			Name:  "And",
 			Query: pb.GetAllQuery().StringField(&nidhi.StringQuery{Eq: nidhi.String("1")}).And().BoolField(&nidhi.BoolQuery{Eq: nidhi.Bool(true)}),
-			Sql:   nidhi.ColDoc + `->>'stringField' = ? AND (` + nidhi.ColDoc + `->'boolField')::bool = ?`,
+			SQL:   nidhi.ColDoc + `->>'stringField' = ? AND (` + nidhi.ColDoc + `->'boolField')::bool = ?`,
 			Args:  []interface{}{"1", true},
 		},
 		{
 			Name:  "Or",
 			Query: pb.GetAllQuery().StringField(&nidhi.StringQuery{Eq: nidhi.String("1")}).Or().BoolField(&nidhi.BoolQuery{Eq: nidhi.Bool(true)}),
-			Sql:   nidhi.ColDoc + `->>'stringField' = ? OR (` + nidhi.ColDoc + `->'boolField')::bool = ?`,
+			SQL:   nidhi.ColDoc + `->>'stringField' = ? OR (` + nidhi.ColDoc + `->'boolField')::bool = ?`,
 			Args:  []interface{}{"1", true},
 		},
 	}
 
 	for _, row := range table {
 		t.Run(row.Name, func(t *testing.T) {
-			actSql, actArgs, err := row.Query.ToSql()
+			actSQL, actArgs, err := row.Query.ToSql()
 			if err != nil {
 				return
 			}
 
-			if strings.TrimSpace(actSql) != row.Sql {
-				t.Fatalf("sql mismatch, exp: %s, act: %s", row.Sql, actSql)
+			if strings.TrimSpace(actSQL) != row.SQL {
+				t.Fatalf("sql mismatch, exp: %s, act: %s", row.SQL, actSQL)
 			}
 
 			if !reflect.DeepEqual(actArgs, row.Args) {
@@ -128,16 +131,18 @@ var _ = Describe("Collection", func() {
 	)
 	BeforeSuite(func() {
 		var err error
-		db, err = postgres.Open(ctx, "postgres://krsna@localhost/postgres?sslmode=disable")
+		db, err = postgres.Open(ctx, "postgres://srikrsna@localhost/postgres?sslmode=disable")
 		Expect(db, err).NotTo(BeNil())
 		Expect(db.Ping()).To(Succeed())
 		Expect(db.Exec(`DROP TABLE IF EXISTS pb.alls;`)).ToNot(BeNil())
-		col, err = pb.OpenAllCollection(ctx, db)
+		col, err = pb.OpenAllCollection(ctx, db, activitylogs.Provider(func(ctx context.Context) string {
+			return "srikrsna"
+		}))
 		Expect(col, err).NotTo(BeNil())
 	})
 
 	AfterSuite(func() {
-		db.Close()
+		_ = db.Close()
 	})
 
 	Context("single document operations", func() {
@@ -147,7 +152,7 @@ var _ = Describe("Collection", func() {
 			doc.Id = uuid.New().String()
 			doc.BytesField = nil
 			s := jsoniter.ConfigDefault.BorrowStream(nil)
-			doc.MarshalDocument(s)
+			Expect(doc.MarshalDocument(s)).To(Succeed())
 			Expect(col.CreateAll(ctx, &doc)).To(Equal(doc.Id), "%#v", string(s.Buffer()))
 		})
 
@@ -181,6 +186,15 @@ var _ = Describe("Collection", func() {
 			})
 		})
 
+		Context("Metadata", func() {
+			It("Get the metadata", func() {
+				var md activitylogs.Metadata
+				_, err := col.GetAll(ctx, doc.Id, nidhi.WithGetMetadata(&md))
+				Expect(err).To(BeNil())
+				Expect(md.Created).ToNot(BeNil())
+			})
+		})
+
 		It("should be able to replace a document", func() {
 			exp := proto.Clone(&doc).(*pb.All)
 			exp.Int32Field = doc.Int32Field + 2
@@ -191,6 +205,7 @@ var _ = Describe("Collection", func() {
 
 	Context("multi document operations", func() {
 		var (
+			ct          = time.Unix(time.Now().Add(-time.Second).Unix(), 0)
 			docs        []*pb.All
 			aboveMarker []*pb.All
 		)
@@ -198,7 +213,7 @@ var _ = Describe("Collection", func() {
 
 		BeforeEach(func() {
 		loop:
-			docs = make([]*pb.All, 1+(rand.Int()%20))
+			docs = make([]*pb.All, 1+(rand.Int()%20)) //nolint:gosec
 			aboveMarker = make([]*pb.All, 0, len(docs))
 			Expect(db.Exec(`TRUNCATE TABLE pb.alls;`)).ToNot(BeNil())
 			for i := range docs {
@@ -206,6 +221,7 @@ var _ = Describe("Collection", func() {
 				fz.Fuzz(&doc)
 				doc.Id = strconv.Itoa(i)
 				docs[i] = &doc
+				docs[i].Timestamp = timestamppb.New(ct)
 				Expect(col.CreateAll(ctx, docs[i])).To(Equal(docs[i].Id))
 				if docs[i].Int32Field > marker {
 					aboveMarker = append(aboveMarker, docs[i])
@@ -231,6 +247,12 @@ var _ = Describe("Collection", func() {
 		It("returns results based on a query", func() {
 			exp := aboveMarker
 			qfe(exp)
+		})
+
+		It("returns values based on a subquery of time", func() {
+			Skip("Timestamp exact match bug is being skipped")
+			exp := docs
+			Expect(col.QueryAlls(ctx, pb.GetAllQuery().Timestamp(&nidhi.TimeQuery{Eq: &ct}))).To(AllSliceEqual(exp))
 		})
 
 		It("returns results with a partial view based on a query", func() {
@@ -352,12 +374,30 @@ var _ = Describe("Collection", func() {
 			Expect(act).To(AllSliceEqual(exp))
 		})
 
-		//It("count documents based on a query", func() {
-		//	Expect(col.Count(ctx,
-		//		newTestQuery().Number(&nidhi.IntQuery{Gt: nidhi.Int64(int64(marker))}),
-		//		nil,
-		//	)).To(Equal(int64(len(aboveMarker))))
-		//})
+		Context("Metadata", func() {
+			It("should fetch activity logs on query", func() {
+				exp := aboveMarker
+				var mdc activitylogs.Creator
+				qfe(exp, nidhi.WithQueryCreateMetadata(mdc.Create))
+				Expect(len(mdc.Values)).To(Equal(len(exp)))
+			})
+
+			It("Fetches all with md user query", func() {
+				exp := docs
+				act, err := col.QueryAlls(ctx, pb.GetAllQuery().WhereMetadata(
+					activitylogs.CreatedBy("srikrsna"),
+				))
+				Expect(act, err).To(AllSliceEqual(exp))
+			})
+
+			It("Fetches all with md time query", func() {
+				exp := docs
+				act, err := col.QueryAlls(ctx, pb.GetAllQuery().WhereMetadata(
+					activitylogs.CreatedAfter(ct),
+				))
+				Expect(act, err).To(AllSliceEqual(exp))
+			})
+		})
 	})
 
 })

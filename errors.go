@@ -7,5 +7,6 @@ func (e Error) Error() string {
 }
 
 const (
-	InvalidCursor Error = "invalid cursor"
+	InvalidCursor         Error = "invalid cursor"
+	DuplicateMetadataKeys Error = "two or more metadata providers using same keys"
 )

@@ -2,120 +2,88 @@ package nidhi
 
 import (
 	"context"
-	"errors"
-	"time"
 
 	jsoniter "github.com/json-iterator/go"
 )
 
-type Metadata struct {
-	Created, Updated, Deleted *ActivityLog
+type Interface interface {
+	Create(ctx context.Context, doc Document, ops []CreateOption) (string, error)
+	Replace(ctx context.Context, doc Document, ops []ReplaceOption) error
+	Update(ctx context.Context, doc Document, f Sqlizer, ops []UpdateOption) error
+	Delete(ctx context.Context, id string, ops []DeleteOption) error
+	DeleteMany(ctx context.Context, f Sqlizer, ops []DeleteOption) error
+	Query(ctx context.Context, f Sqlizer, ctr func() Document, ops []QueryOption) error
+	Get(ctx context.Context, id string, doc Unmarshaler, ops []GetOption) error
 }
 
-type ActivityLog struct {
-	On time.Time `json:"on"`
-	By string    `json:"by"`
+type MetadataProvider struct {
+	Wrap func(col Interface) Interface
+	Keys    []string
 }
 
-func (log *ActivityLog) MarshalDocument(w *jsoniter.Stream) error {
-	if log == nil {
-		w.WriteNil()
-		return w.Error
+func WrapMetadataProviders(col Interface, mdps []*MetadataProvider) (Interface, error) {
+	mdk := map[string]bool{}
+	for _, mdp := range mdps {
+		for _, k := range mdp.Keys {
+			if mdk[k] {
+				return nil, DuplicateMetadataKeys
+			}
+			mdk[k] = true
+		}
+		col = mdp.Wrap(col)
 	}
 
+	return col, nil
+}
+
+type MetadataUnmarshaler interface {
+	UnmarshalMetadata(key string, r *jsoniter.Iterator) (matched bool, err error)
+}
+
+type MetadataMarshaler interface {
+	MarshalMetadata(w *jsoniter.Stream) error
+}
+
+type mdMarshaler []MetadataMarshaler
+
+func (md mdMarshaler) MarshalDocument(w *jsoniter.Stream) error {
 	w.WriteObjectStart()
-
-	w.WriteObjectField("by")
-	w.WriteString(log.By)
-
-	w.WriteMore()
-
-	w.WriteObjectField("on")
-	w.WriteString(log.On.Format(time.RFC3339Nano))
-
+	for _, mm := range md {
+		if err := mm.MarshalMetadata(w); err != nil {
+			return err
+		}
+	}
 	w.WriteObjectEnd()
 
 	return w.Error
 }
 
-func (log *ActivityLog) UnmarshalDocument(r *jsoniter.Iterator) error {
-	if log == nil {
-		return errors.New("empty object passed")
-	}
+func (md mdMarshaler) UnmarshalDocument(_ *jsoniter.Iterator) error {
+	panic("should not be called")
+}
 
-	r.ReadObjectCB(func(r *jsoniter.Iterator, field string) bool {
-		switch field {
-		case "by":
-			log.By = r.ReadString()
-		case "on":
-			log.On, _ = time.Parse(time.RFC3339, r.ReadString())
-		default:
-			r.Skip()
+type mdUnmarshaler []MetadataUnmarshaler
+
+func (md mdUnmarshaler) MarshalDocument(w *jsoniter.Stream) error {
+	panic("should not be called")
+}
+
+func (md mdUnmarshaler) UnmarshalDocument(r *jsoniter.Iterator) error {
+	r.ReadObjectCB(func(r *jsoniter.Iterator, s string) bool {
+		for _, mu := range md {
+			match, err := mu.UnmarshalMetadata(s, r)
+			if err != nil {
+				r.ReportError("metadata unmarshal for key: "+s, err.Error())
+				return false
+			}
+			if match {
+				return true
+			}
 		}
 
+		r.Skip()
 		return true
 	})
 
 	return r.Error
 }
-
-func (doc *Metadata) MarshalDocument(w *jsoniter.Stream) error {
-	if doc == nil {
-		w.WriteNil()
-		return w.Error
-	}
-
-	w.WriteObjectStart()
-
-	if doc.Created != nil {
-		w.WriteObjectField("created")
-		_ = doc.Created.MarshalDocument(w)
-	}
-
-	if doc.Updated != nil {
-		if doc.Created != nil {
-			w.WriteMore()
-		}
-		w.WriteObjectField("updated")
-		_ = doc.Updated.MarshalDocument(w)
-	}
-
-	if doc.Deleted != nil {
-		if doc.Created != nil || doc.Updated != nil {
-			w.WriteMore()
-		}
-		w.WriteObjectField("deleted")
-		_ = doc.Deleted.MarshalDocument(w)
-	}
-
-	w.WriteObjectEnd()
-
-	return w.Error
-}
-
-func (doc *Metadata) UnmarshalDocument(r *jsoniter.Iterator) error {
-	if doc == nil {
-		return errors.New("empty object passed")
-	}
-
-	r.ReadObjectCB(func(r *jsoniter.Iterator, field string) bool {
-		switch field {
-		case "created":
-			doc.Created = &ActivityLog{}
-			_ = doc.Created.UnmarshalDocument(r)
-		case "updated":
-			doc.Updated = &ActivityLog{}
-			_ = doc.Updated.UnmarshalDocument(r)
-		case "deleted":
-			doc.Deleted = &ActivityLog{}
-			_ = doc.Deleted.UnmarshalDocument(r)
-		default:
-			r.Skip()
-		}
-		return true
-	})
-
-	return r.Error
-}
-
-type SubjectFunc func(context.Context) string

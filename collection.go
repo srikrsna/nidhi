@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"time"
 
 	sq "github.com/elgris/sqrl"
 	"github.com/elgris/sqrl/pg"
@@ -16,8 +15,9 @@ const (
 	ColDoc  = "document"
 	ColRev  = `"revision"`
 	ColMeta = "metadata"
+	ColDel  = "deleted"
 
-	notDeleted = "NOT (metadata ?? 'deleted')"
+	notDeleted = ColDel + " = false "
 	seperator  = ":"
 )
 
@@ -25,8 +25,7 @@ type collection struct {
 	table string
 	tx    sq.BaseRunner
 
-	subFunc SubjectFunc
-	fields  []string
+	fields []string
 }
 
 func (c *collection) Create(ctx context.Context, doc Document, ops []CreateOption) (string, error) {
@@ -46,18 +45,17 @@ func (c *collection) Create(ctx context.Context, doc Document, ops []CreateOptio
 	if err := doc.MarshalDocument(stream); err != nil {
 		return "", fmt.Errorf("nidhi: unable to marshal document of collection: %s, err: %w", c.table, err)
 	}
-	al := c.activityLog(ctx)
 
 	args := []interface{}{
 		id,
 		stream.Buffer(),
-		JSONB(&Metadata{Created: al}),
+		JSONB(mdMarshaler(cop.CreateMetadata)),
 	}
 
 	query := `INSERT INTO ` + c.table + ` (id, revision, document, metadata) VALUES ($1, 1, $2, $3)`
 	if cop.Replace {
 		query += ` ON CONFLICT(id) DO UPDATE SET revision = ` + c.table + `.revision + 1, document = $2, metadata = ` + c.table + `.metadata || $4`
-		args = append(args, JSONB(&Metadata{Updated: al}))
+		args = append(args, JSONB(mdMarshaler(cop.ReplaceMetadata)))
 	}
 
 	if _, err := c.tx.ExecContext(ctx,
@@ -83,7 +81,7 @@ func (c *collection) Replace(ctx context.Context, doc Document, ops []ReplaceOpt
 		return fmt.Errorf("nidhi: unable to marshal document of collection: %s, err: %w", c.table, err)
 	}
 
-	stmt := c.updateStatement(ctx, stream.Buffer(), false)
+	stmt := c.updateStatement(ctx, stream.Buffer(), false, rop.Metadata)
 	if rop.Revision > 0 {
 		stmt = stmt.Where(sq.Eq{ColRev: rop.Revision})
 	}
@@ -116,7 +114,7 @@ func (c *collection) Update(ctx context.Context, doc Document, f Sqlizer, ops []
 		return fmt.Errorf("nidhi: unable to marshal document of collection: %s, err: %w", c.table, err)
 	}
 
-	st := c.updateStatement(ctx, stream.Buffer(), true)
+	st := c.updateStatement(ctx, stream.Buffer(), true, uop.Metadata)
 
 	if f != nil {
 		st = st.Where(f)
@@ -138,12 +136,12 @@ func (c *collection) Delete(ctx context.Context, id string, ops []DeleteOption) 
 	}
 
 	var (
-		sql  string
-		args []interface{}
-		err  error
+		sqlStr string
+		args   []interface{}
+		err    error
 	)
 	if dop.Permanent {
-		sql, args, err = sq.Delete(c.table).Where(sq.Eq{ColId: id}).PlaceholderFormat(sq.Dollar).ToSql()
+		sqlStr, args, err = sq.Delete(c.table).Where(sq.Eq{ColId: id}).PlaceholderFormat(sq.Dollar).ToSql()
 		if err != nil {
 			return fmt.Errorf("nidhi: there seems to be a bug: unable to build delete statement: %w", err)
 		}
@@ -151,15 +149,16 @@ func (c *collection) Delete(ctx context.Context, id string, ops []DeleteOption) 
 		st := sq.Update(c.table).
 			Where(sq.Eq{ColId: id}).
 			Where(notDeleted).
-			Set(ColMeta, merge(ColMeta, &Metadata{Deleted: c.activityLog(ctx)}))
+			Set(ColDel, true).
+			Set(ColMeta, merge(ColMeta, mdMarshaler(dop.Metadata)))
 
-		sql, args, err = st.PlaceholderFormat(sq.Dollar).ToSql()
+		sqlStr, args, err = st.PlaceholderFormat(sq.Dollar).ToSql()
 		if err != nil {
 			return fmt.Errorf("nidhi: there seems to be a bug: unable to build delete statement: %w", err)
 		}
 	}
 
-	if _, err := c.tx.ExecContext(ctx, sql, args...); err != nil {
+	if _, err := c.tx.ExecContext(ctx, sqlStr, args...); err != nil {
 		return fmt.Errorf("nidhi: unable to delete a document of collection: %s, err: %w", c.table, err)
 	}
 
@@ -173,33 +172,33 @@ func (c *collection) DeleteMany(ctx context.Context, f Sqlizer, ops []DeleteOpti
 	}
 
 	var (
-		sql  string
-		args []interface{}
-		err  error
+		sqlStr string
+		args   []interface{}
+		err    error
 	)
 	if dop.Permanent {
 		st := sq.Delete(c.table)
 		if f != nil {
 			st = st.Where(f)
 		}
-		sql, args, err = st.PlaceholderFormat(sq.Dollar).ToSql()
+		sqlStr, args, err = st.PlaceholderFormat(sq.Dollar).ToSql()
 		if err != nil {
 			return fmt.Errorf("nidhi: there seems to be a bug: unable to build delete statement: %w", err)
 		}
 	} else {
-		st := sq.Update(c.table).Set(ColMeta, merge(ColMeta, &Metadata{Deleted: c.activityLog(ctx)}))
+		st := sq.Update(c.table).Set(ColDel, true).Set(ColMeta, merge(ColMeta, mdMarshaler(dop.Metadata)))
 		if f != nil {
 			st = st.Where(f)
 		}
 		st = st.Where(notDeleted)
 
-		sql, args, err = st.PlaceholderFormat(sq.Dollar).ToSql()
+		sqlStr, args, err = st.PlaceholderFormat(sq.Dollar).ToSql()
 		if err != nil {
 			return fmt.Errorf("nidhi: there seems to be a bug: unable to build delete statement: %w", err)
 		}
 	}
 
-	if _, err := c.tx.ExecContext(ctx, sql, args...); err != nil {
+	if _, err := c.tx.ExecContext(ctx, sqlStr, args...); err != nil {
 		return fmt.Errorf("nidhi: unable to delete a document of collection: %s, err: %w", c.table, err)
 	}
 
@@ -218,7 +217,6 @@ func (c *collection) Query(ctx context.Context, f Sqlizer, ctr func() Document, 
 	}
 
 	st := sq.Select().Column(selection).From(c.table)
-
 	if f != nil {
 		st = st.Where(f)
 	}
@@ -228,6 +226,11 @@ func (c *collection) Query(ctx context.Context, f Sqlizer, ctr func() Document, 
 	st, scans, err := addPagination(st, qop.PaginationOptions)
 	if err != nil {
 		return fmt.Errorf("nidhi: unable to paginate: %s, err: %w", c.table, err)
+	}
+	var md sql.RawBytes
+	if len(qop.CreateMetadata) > 0 {
+		st = st.Column(ColMeta)
+		scans = append(scans, &md)
 	}
 
 	rows, err := st.PlaceholderFormat(sq.Dollar).RunWith(c.tx).QueryContext(ctx)
@@ -260,6 +263,17 @@ func (c *collection) Query(ctx context.Context, f Sqlizer, ctr func() Document, 
 		if err := doc.UnmarshalDocument(iter); err != nil {
 			return fmt.Errorf("nidhi: unable to unmarshal document of type %s, err: %w", c.table, err)
 		}
+
+		if len(qop.CreateMetadata) > 0 {
+			iter.ResetBytes(md)
+			mdu := make(mdUnmarshaler, 0, len(qop.CreateMetadata))
+			for _, cmd := range qop.CreateMetadata {
+				mdu = append(mdu, cmd())
+			}
+			if err := mdu.UnmarshalDocument(iter); err != nil {
+				return fmt.Errorf("nidhi: unable to unmarshal metadata of type %s, err: %w", c.table, err)
+			}
+		}
 	}
 
 	if err := rows.Err(); err != nil {
@@ -267,7 +281,11 @@ func (c *collection) Query(ctx context.Context, f Sqlizer, ctr func() Document, 
 	}
 
 	if qop.PaginationOptions != nil {
-		if len(scans) == 2 {
+		offset := 0
+		if len(qop.CreateMetadata) > 0 {
+			offset = 1
+		}
+		if len(scans) == 2+offset {
 			qop.PaginationOptions.NextCursor = *(scans[1].(*string))
 		} else {
 			qop.PaginationOptions.NextCursor = qop.PaginationOptions.OrderBy[0].Field.Encode(scans[1], *(scans[2].(*string)))
@@ -288,38 +306,29 @@ func (c *collection) Get(ctx context.Context, id string, doc Unmarshaler, ops []
 		selection = sq.Expr(ColDoc+" - ?::text[]", pg.Array(difference(c.fields, gop.ViewMask)))
 	}
 
-	st := sq.Select().Column(selection).From(c.table).Where(sq.Eq{ColId: id}).Where(notDeleted)
+	st := sq.Select().Column(selection)
 
-	var entity []byte
-	if err := st.PlaceholderFormat(sq.Dollar).RunWith(c.tx).QueryRowContext(ctx).Scan(&entity); err != nil {
-		return fmt.Errorf("nidhi: unable to get a document from collection %q, err: %w", c.table, err)
+	scans := make([]interface{}, 0, 2)
+	scans = append(scans, JSONB(NoopMarshaler{Unmarshaler: doc}))
+
+	if len(gop.Metadata) > 0 {
+		st = st.Column(ColMeta)
+		scans = append(scans, JSONB(mdUnmarshaler(gop.Metadata)))
 	}
 
-	iter := jsoniter.ConfigDefault.BorrowIterator(entity)
-	defer jsoniter.ConfigDefault.ReturnIterator(iter)
+	st = st.From(c.table).Where(sq.Eq{ColId: id}).Where(notDeleted)
 
-	if err := doc.UnmarshalDocument(iter); err != nil {
-		return fmt.Errorf("nidhi: unable to unmarshal document of type %s, err: %w", c.table, err)
+	if err := st.PlaceholderFormat(sq.Dollar).RunWith(c.tx).QueryRowContext(ctx).Scan(scans...); err != nil {
+		return fmt.Errorf("nidhi: unable to get a document from collection %q, err: %w", c.table, err)
 	}
 
 	return nil
 }
 
-func (c *collection) activityLog(ctx context.Context) *ActivityLog {
-	sub := ""
-	if c.subFunc != nil {
-		sub = c.subFunc(ctx)
-	}
-	return &ActivityLog{
-		By: sub,
-		On: time.Now(),
-	}
-}
-
-func (c *collection) updateStatement(ctx context.Context, buf []byte, merge bool) *sq.UpdateBuilder {
+func (c *collection) updateStatement(ctx context.Context, buf []byte, merge bool, m mdMarshaler) *sq.UpdateBuilder {
 	st := sq.Update(c.table).
 		Set(ColRev, sq.Expr(ColRev+" + 1 ")).
-		Set(ColMeta, sq.Expr(ColMeta+" || ? ", JSONB(&Metadata{Updated: c.activityLog(ctx)})))
+		Set(ColMeta, sq.Expr(ColMeta+" || ? ", JSONB(m)))
 
 	if merge {
 		st = st.Set(ColDoc, sq.Expr(ColDoc+" || ? ", buf))
