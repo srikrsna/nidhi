@@ -37,6 +37,7 @@ func (doc *{{ $name }}) MarshalDocument(w *jsoniter.Stream) error {
 {{- end }}
 	w.WriteObjectEnd()
 
+	_ = first
 	return w.Error
 }
 
