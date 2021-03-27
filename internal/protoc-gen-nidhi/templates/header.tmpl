@@ -4,24 +4,9 @@
 package {{ .Package | Name }}
 
 import (
-	"context"
-	"database/sql"
-	"errors"
-
 	jsoniter "github.com/json-iterator/go"
-
-	"github.com/srikrsna/nidhi"
 	nidhigen "github.com/srikrsna/nidhi/nidhigen"
-	"google.golang.org/protobuf/types/known/anypb"
-)
-
-var (
-	_ = context.Background
-	_ = (*sql.DB)(nil)
-	_ = errors.New
-	_ = jsoniter.Marshal
-	_ = nidhi.JSONB
-	_ = nidhigen.WriteString
-	_ = anypb.New
+	
+	{{ range .Imps }}"{{ . }}";{{ end }}
 )
 

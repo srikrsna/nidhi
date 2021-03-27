@@ -36,9 +36,11 @@ func (m *Module) InitContext(c pgs.BuildContext) {
 	pc := pluralize.NewClient()
 
 	tpl, err := parseTemplates(map[string]interface{}{
-		"Name":       m.goContext.Name,
-		"LowerCamel": func(n pgs.Name) pgs.Name { return n.LowerCamelCase() },
-		"Plural":     func(n pgs.Name) string { return pc.Plural(n.String()) },
+		"Name":        m.goContext.Name,
+		"ImportPath":  m.goContext.ImportPath,
+		"PackageName": m.goContext.PackageName,
+		"LowerCamel":  func(n pgs.Name) pgs.Name { return n.LowerCamelCase() },
+		"Plural":      func(n pgs.Name) string { return pc.Plural(n.String()) },
 		"IsString": func(f pgs.Field) bool {
 			return !f.Type().IsRepeated() && f.Type().ProtoType() == pgs.StringT
 		},
@@ -49,13 +51,16 @@ func (m *Module) InitContext(c pgs.BuildContext) {
 			return !f.Type().IsRepeated() && f.Type().ProtoType() == pgs.BytesT
 		},
 		"IsWKT": func(f pgs.Field) bool {
-			return f.Type().IsEmbed() && f.Type().Embed().IsWellKnown()
+			return f.Type().IsEmbed() && (f.Type().Embed().IsWellKnown() || f.Type().Embed().Name() == "FieldMask")
 		},
 		"IsWKTTime": func(f pgs.Field) bool {
 			return f.Type().Embed().WellKnownType() == pgs.TimestampWKT
 		},
 		"IsWKTAny": func(f pgs.Field) bool {
 			return f.Type().Embed().WellKnownType() == pgs.AnyWKT
+		},
+		"IsWKTFieldMask": func(f pgs.Field) bool {
+			return f.Type().Embed().Name() == "FieldMask"
 		},
 		"IsWKTDuration": func(f pgs.Field) bool {
 			return f.Type().Embed().WellKnownType() == pgs.DurationWKT
@@ -91,12 +96,39 @@ func (m *Module) Execute(files map[string]pgs.File, _ map[string]pgs.Package) []
 		Prefix string
 	}
 
-	headersWritten := map[string]bool{}
-
-	var allRoots []Root
 	for _, file := range files {
+		if len(file.AllMessages()) == 0 {
+			continue
+		}
+
 		roots := make([]Root, 0, len(file.AllMessages()))
+		name := m.goContext.OutputPath(file).SetExt(".nidhi.go").String()
+
+		imp := map[string]bool{}
+		fileWrapper := struct {
+			pgs.File
+			Imps []string
+		}{
+			file,
+			[]string{},
+		}
+		m.AddGeneratorTemplateFile(name, m.tpl.Lookup("header"), &fileWrapper)
+
 		for _, msg := range file.Messages() {
+			m.generateMarshaler(msg)
+
+			for _, f := range msg.Fields() {
+				if f.Type().IsEmbed() {
+					if !f.Type().Embed().BuildTarget() && ((!f.Type().Embed().IsWellKnown() && f.Type().Embed().Name() != "FieldMask") || f.Type().Embed().WellKnownType() == pgs.AnyWKT) {
+						imp[string(m.goContext.ImportPath(f.Type().Embed()))] = true
+					}
+				} else if (f.Type().IsRepeated() || f.Type().IsMap()) && f.Type().Element().IsEmbed() {
+					if !f.Type().Element().Embed().BuildTarget() {
+						imp[string(m.goContext.ImportPath(f.Type().Element().Embed()))] = true
+					}
+				}
+			}
+
 			var prefix string
 			found, err := msg.Extension(nidhipb.E_Prefix, &prefix)
 			if err != nil {
@@ -108,29 +140,30 @@ func (m *Module) Execute(files map[string]pgs.File, _ map[string]pgs.Package) []
 			}
 		}
 
+		fileWrapper.Imps = make([]string, 0, len(imp)+3)
+		for i := range imp {
+			fileWrapper.Imps = append(fileWrapper.Imps, i)
+		}
+
 		if len(roots) == 0 {
 			continue
 		}
 
-		name := m.goContext.OutputPath(file).SetExt(".nidhi.go").String()
-		m.AddGeneratorTemplateFile(name, m.tpl.Lookup("header"), file)
-		headersWritten[name] = true
+		fileWrapper.Imps = append(fileWrapper.Imps, "database/sql", "context", "github.com/srikrsna/nidhi")
+
 		for _, root := range roots {
 			m.AddGeneratorTemplateAppend(name, m.tpl.Lookup("fields-header"), root)
 			m.AddGeneratorTemplateAppend(name, m.tpl.Lookup("store"), root)
 			m.AddGeneratorTemplateAppend(name, m.tpl.Lookup("query"), root)
 			m.generateSubQuery(name, root, root, root.Name())
 		}
-
-		allRoots = append(allRoots, roots...)
-	}
-
-	generated := map[string]bool{}
-	for _, root := range allRoots {
-		m.generateMarshaler(root.Message, generated, headersWritten)
 	}
 
 	return m.Artifacts()
+}
+
+func (m *Module) shouldAddImport(msg pgs.Message) bool {
+	return !msg.BuildTarget() && !msg.IsWellKnown() && msg.Name() != "FieldMask"
 }
 
 func (m *Module) generateSubQuery(name string, root, msg pgs.Message, parent pgs.Name) {
@@ -151,33 +184,14 @@ func (m *Module) generateSubQuery(name string, root, msg pgs.Message, parent pgs
 	}
 }
 
-func (m *Module) generateMarshaler(msg pgs.Message, generated, headersWritten map[string]bool) {
+func (m *Module) generateMarshaler(msg pgs.Message) {
 	if !msg.BuildTarget() {
 		return
 	}
 
 	name := m.goContext.OutputPath(msg).SetExt(".nidhi.go").String()
-
-	if !headersWritten[name] {
-		m.AddGeneratorTemplateFile(name, m.tpl.Lookup("header"), msg.File())
-		headersWritten[name] = true
-	}
-
-	if generated[msg.FullyQualifiedName()] {
-		return
-	}
-
 	m.AddGeneratorTemplateAppend(name, m.tpl.Lookup("fields"), msg)
 	m.AddGeneratorTemplateAppend(name, m.tpl.Lookup("json"), msg)
-	generated[msg.FullyQualifiedName()] = true
-
-	for _, f := range msg.Fields() {
-		if f.Type().IsEmbed() {
-			m.generateMarshaler(f.Type().Embed(), generated, headersWritten)
-		} else if f.Type().IsRepeated() && f.Type().Element().IsEmbed() {
-			m.generateMarshaler(f.Type().Element().Embed(), generated, headersWritten)
-		}
-	}
 }
 
 //go:embed templates/*.tmpl

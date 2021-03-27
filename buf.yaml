@@ -1,4 +1,7 @@
 version: v1beta1
+name: buf.build/srikrsna/nidhi
+deps:
+  - buf.build/beta/googleapis
 build:
   roots:
     - .

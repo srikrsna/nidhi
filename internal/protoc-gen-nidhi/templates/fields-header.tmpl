@@ -1,6 +1,6 @@
 
-var ins_{{ . | Name }}Schema = new{{ . | Name }}Schema(" ("+nidhi.ColDoc)
+var ins_{{ . | Name }}Schema = New{{ . | Name }}Schema(" ("+nidhi.ColDoc)
 
-func {{ . | Name }}Schema() *{{ . | Name | LowerCamel }}Schema {
+func {{ . | Name }}Schema() *{{ . | Name }}SchemaImp {
     return ins_{{ . | Name }}Schema
 }

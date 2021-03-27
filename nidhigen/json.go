@@ -4,14 +4,20 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"reflect"
+	"strings"
 	"time"
 
 	jsoniter "github.com/json-iterator/go"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/fieldmaskpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/srikrsna/nidhi"
+)
+
+const (
+	ErrNilUnmarshal nidhi.Error = "nil passed to unmarshal"
 )
 
 func WriteString(w *jsoniter.Stream, field, value string, first bool) bool {
@@ -260,6 +266,20 @@ func WriteInt64Slice(w *jsoniter.Stream, field string, value []int64, first bool
 	}
 
 	WriteInt64SliceOneOf(w, field, value)
+
+	return false
+}
+
+func WriteFieldMask(w *jsoniter.Stream, field string, value *fieldmaskpb.FieldMask, first bool) bool {
+	if len(value.GetPaths()) == 0 {
+		return first
+	}
+
+	if !first {
+		w.WriteMore()
+	}
+
+	WriteFieldMaskOneOf(w, field, value)
 
 	return false
 }
@@ -561,6 +581,11 @@ func WriteInt64SliceOneOf(w *jsoniter.Stream, field string, value []int64) {
 	w.WriteArrayEnd()
 }
 
+func WriteFieldMaskOneOf(w *jsoniter.Stream, field string, value *fieldmaskpb.FieldMask) {
+	w.WriteObjectField(field)
+	w.WriteString(strings.Join(value.GetPaths(), ","))
+}
+
 func WriteTimestampOneOf(w *jsoniter.Stream, field string, value *timestamppb.Timestamp) {
 	w.WriteObjectField(field)
 	w.WriteString(value.AsTime().Format(time.RFC3339))
@@ -662,4 +687,10 @@ func ReadAny(r *jsoniter.Iterator) *anypb.Any {
 		r.ReportError("decoding any", err.Error())
 	}
 	return &any
+}
+
+func ReadFieldMask(r *jsoniter.Iterator) *fieldmaskpb.FieldMask {
+	return &fieldmaskpb.FieldMask{
+		Paths: strings.Split(r.ReadString(), ","),
+	}
 }

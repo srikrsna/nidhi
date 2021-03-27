@@ -23,7 +23,7 @@ func (doc *{{ $name }}) MarshalDocument(w *jsoniter.Stream) error {
     first = nidhigen.Write{{ $gtype.Element | Capitalise }}Slice(w, "{{ .Name | LowerCamel }}", doc.{{ . | Name }}, first)
 {{- end }}
 {{- else if . | IsWKT }}
-	first = nidhigen.Write{{ .Type.Embed.WellKnownType }}(w, "{{ .Name | LowerCamel }}", doc.{{ . | Name }}, first)
+	first = nidhigen.Write{{ .Type.Embed.Name }}(w, "{{ .Name | LowerCamel }}", doc.{{ . | Name }}, first)
 {{- else if .Type.IsEmbed }}
     first = nidhigen.WriteMarshaler(w, "{{ .Name | LowerCamel }}", doc.{{ . | Name }}, first)
 {{- else if . | IsBytes }}
@@ -43,7 +43,7 @@ func (doc *{{ $name }}) MarshalDocument(w *jsoniter.Stream) error {
 
 func (doc *{{ $name }}) UnmarshalDocument(r *jsoniter.Iterator) error {
 	if doc == nil {
-		return errors.New("empty object passed")
+		return nidhigen.ErrNilUnmarshal
 	}
 
 	r.ReadObjectCB(func(r *jsoniter.Iterator, field string) bool {
@@ -84,7 +84,7 @@ func (of *{{ $name }}) MarshalDocument(w *jsoniter.Stream) error {
 		nidhigen.Write{{ $gtype.Element | Capitalise }}SliceOneOf(w, "{{ .Name | LowerCamel }}", of.{{ . | Name }})
 	{{- end }}
 {{- else if . | IsWKT }}
-	nidhigen.Write{{ .Type.Embed.WellKnownType }}OneOf(w, "{{ .Name | LowerCamel }}", of.{{ . | Name }})
+	nidhigen.Write{{ .Type.Embed.Name }}OneOf(w, "{{ .Name | LowerCamel }}", of.{{ . | Name }})
 {{- else if .Type.IsEmbed }}
 	nidhigen.WriteMarshalerOneOf(w, "{{ .Name | LowerCamel }}", of.{{ . | Name }})
 {{- else if . | IsBytes }}
@@ -150,7 +150,7 @@ func (s *{{ $name }}Slice) UnmarshalDocument(r *jsoniter.Iterator) error {
 			})
 		{{- end }}
 	{{- else if . | IsWKT }}
-		{{$fa}} = nidhigen.Read{{ .Type.Embed.WellKnownType }}(r)
+		{{$fa}} = nidhigen.Read{{ .Type.Embed.Name }}(r)
 	{{- else if .Type.IsEmbed }}
 		{{$fa}} = &{{$gtype.Value}}{}
 		r.Error = {{$fa}}.UnmarshalDocument(r)

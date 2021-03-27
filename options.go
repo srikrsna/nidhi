@@ -103,6 +103,8 @@ type GetOptions struct {
 	ViewMask []string
 
 	Metadata []MetadataUnmarshaler
+
+	Revision *int64
 }
 
 type GetOption func(*GetOptions)
@@ -125,6 +127,12 @@ func WithGetMetadata(mm ...MetadataUnmarshaler) GetOption {
 	}
 }
 
+func WithGetRevision(r *int64) GetOption {
+	return func(gop *GetOptions) {
+		gop.Revision = r
+	}
+}
+
 type ReplaceOptions struct {
 	Metadata []MetadataMarshaler
 	Revision int64
@@ -135,6 +143,12 @@ type ReplaceOption func(*ReplaceOptions)
 func WithReplaceOptions(o ReplaceOptions) ReplaceOption {
 	return func(opt *ReplaceOptions) {
 		*opt = o
+	}
+}
+
+func WithReplaceRevision(r int64) ReplaceOption {
+	return func(ro *ReplaceOptions) {
+		ro.Revision = r
 	}
 }
 

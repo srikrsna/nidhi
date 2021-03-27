@@ -94,7 +94,7 @@ func (c *collection) Replace(ctx context.Context, doc Document, ops []ReplaceOpt
 	}
 
 	if rc != 1 {
-		return fmt.Errorf("nidhi: no document matched with the given id and revision")
+		return NotFound
 	}
 
 	return nil
@@ -308,8 +308,13 @@ func (c *collection) Get(ctx context.Context, id string, doc Unmarshaler, ops []
 
 	st := sq.Select().Column(selection)
 
-	scans := make([]interface{}, 0, 2)
+	scans := make([]interface{}, 0, 3)
 	scans = append(scans, JSONB(NoopMarshaler{Unmarshaler: doc}))
+
+	if gop.Revision != nil {
+		st = st.Column(ColRev)
+		scans = append(scans, gop.Revision)
+	}
 
 	if len(gop.Metadata) > 0 {
 		st = st.Column(ColMeta)
@@ -319,6 +324,9 @@ func (c *collection) Get(ctx context.Context, id string, doc Unmarshaler, ops []
 	st = st.From(c.table).Where(sq.Eq{ColId: id}).Where(notDeleted)
 
 	if err := st.PlaceholderFormat(sq.Dollar).RunWith(c.tx).QueryRowContext(ctx).Scan(scans...); err != nil {
+		if err == sql.ErrNoRows {
+			return NotFound
+		}
 		return fmt.Errorf("nidhi: unable to get a document from collection %q, err: %w", c.table, err)
 	}
 

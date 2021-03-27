@@ -8,7 +8,6 @@ import (
 	"time"
 
 	sq "github.com/elgris/sqrl"
-	"github.com/elgris/sqrl/pg"
 )
 
 type Sqlizer = sq.Sqlizer
@@ -92,7 +91,7 @@ func (q *Query) Prefix(p string) {
 	q.query.WriteString(p)
 }
 
-func (q *Query) ReplaceArgs(args ...interface{}) error {
+func (q *Query) ReplaceArgs(args []interface{}) error {
 	if len(args) != len(q.args) {
 		return fmt.Errorf("nidhi: different number of args are passed")
 	}
@@ -313,7 +312,7 @@ func (s *SliceQuery) ToQuery(name string, sb io.StringWriter, args *[]interface{
 		sb.WriteString(" ")
 		sb.WriteString(name)
 		sb.WriteString(" " + sym + " ?")
-		*args = append(*args, pg.Array(s.Slice))
+		*args = append(*args, Jsonb{s.Slice})
 	}
 	if s.Options.Eq != nil {
 		wc("=")

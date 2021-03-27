@@ -25,6 +25,25 @@ type Unmarshaler interface {
 	UnmarshalDocument(r *jsoniter.Iterator) error
 }
 
+type Jsonb struct {
+	V interface{}
+}
+
+func (j Jsonb) Scan(src interface{}) error {
+	switch v := src.(type) {
+	case string:
+		return jsoniter.Unmarshal([]byte(v), j.V)
+	case []byte:
+		return jsoniter.Unmarshal(v, j.V)
+	}
+
+	return fmt.Errorf("nidhi: error while scanning jsonb, expected []byte got %T", src)
+}
+
+func (j Jsonb) Value() (driver.Value, error) {
+	return jsoniter.Marshal(j.V)
+}
+
 type jsonb struct {
 	v interface {
 		Marshaler
