@@ -868,7 +868,7 @@ type AllQuery interface {
 type AllConj interface {
 	And() AllQuery
 	Or() AllQuery
-	ReplaceArgs(args ...interface{}) error
+	ReplaceArgs(args ...interface{}) (AllConj, error)
 	isAllQuery
 }
 
@@ -1039,8 +1039,12 @@ func (q *imp_AllQuery) Or() AllQuery {
 	return q
 }
 
-func (q *imp_AllQuery) ReplaceArgs(args ...interface{}) error {
-	return (*nidhi.Query)(q).ReplaceArgs(args)
+func (q *imp_AllQuery) ReplaceArgs(args ...interface{}) (AllConj, error) {
+	nq, err := (*nidhi.Query)(q).ReplaceArgs(args)
+	if err != nil {
+		return nil, err
+	}
+	return (*imp_AllQuery)(nq), nil
 }
 
 func (q *imp_AllQuery) ToSql() (string, []interface{}, error) {

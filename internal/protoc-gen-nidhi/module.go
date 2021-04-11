@@ -93,7 +93,6 @@ func (m *Module) InitContext(c pgs.BuildContext) {
 func (m *Module) Execute(files map[string]pgs.File, _ map[string]pgs.Package) []pgs.Artifact {
 	type Root struct {
 		pgs.Message
-		Prefix string
 	}
 
 	for _, file := range files {
@@ -129,14 +128,14 @@ func (m *Module) Execute(files map[string]pgs.File, _ map[string]pgs.Package) []
 				}
 			}
 
-			var prefix string
-			found, err := msg.Extension(nidhipb.E_Prefix, &prefix)
+			var prefix bool
+			found, err := msg.Extension(nidhipb.E_Root, &prefix)
 			if err != nil {
 				m.Fail(err)
 			}
 
 			if found {
-				roots = append(roots, Root{msg, prefix})
+				roots = append(roots, Root{msg})
 			}
 		}
 

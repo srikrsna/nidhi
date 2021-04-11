@@ -18,7 +18,9 @@ type Queryer interface {
 
 var queryPool = sync.Pool{
 	New: func() interface{} {
-		return new(Query)
+		return &Query{
+			query: &strings.Builder{},
+		}
 	},
 }
 
@@ -34,7 +36,7 @@ func PutQuery(q *Query) {
 
 type Query struct {
 	err   error
-	query strings.Builder
+	query *strings.Builder
 	args  []interface{}
 }
 
@@ -45,7 +47,7 @@ func (q *Query) Reset() {
 }
 
 func (q *Query) Id(f *StringQuery) {
-	if err := f.ToQuery(ColId, &q.query, &q.args); err != nil {
+	if err := f.ToQuery(ColId, q.query, &q.args); err != nil {
 		q.err = err
 	}
 }
@@ -82,7 +84,7 @@ func (q *Query) Or() {
 }
 
 func (q *Query) Field(name string, f Queryer) {
-	if err := f.ToQuery(name, &q.query, &q.args); err != nil {
+	if err := f.ToQuery(name, q.query, &q.args); err != nil {
 		q.err = err
 	}
 }
@@ -91,14 +93,15 @@ func (q *Query) Prefix(p string) {
 	q.query.WriteString(p)
 }
 
-func (q *Query) ReplaceArgs(args []interface{}) error {
+func (q *Query) ReplaceArgs(args []interface{}) (*Query, error) {
 	if len(args) != len(q.args) {
-		return fmt.Errorf("nidhi: different number of args are passed")
+		return nil, fmt.Errorf("nidhi: different number of args are passed")
 	}
 
-	q.args = args
+	query := strings.Builder{}
+	query.WriteString(q.query.String())
 
-	return nil
+	return &Query{err: q.err, query: &query, args: args}, nil
 }
 
 func (q *Query) ToSql() (string, []interface{}, error) {

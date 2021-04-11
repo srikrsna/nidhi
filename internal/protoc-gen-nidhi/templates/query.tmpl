@@ -42,7 +42,7 @@ type {{ $name }}Query interface {
 type {{ $name }}Conj interface {
 	And() {{ $name }}Query
 	Or() {{ $name }}Query
-	ReplaceArgs(args ...interface{}) error
+	ReplaceArgs(args ...interface{}) ({{ $name }}Conj, error)
 	is{{ $name }}Query
 }
 
@@ -148,8 +148,12 @@ func (q *{{ $lowerName }}Query) Or() {{ $name }}Query {
 	return q
 }
 
-func (q *{{ $lowerName }}Query) ReplaceArgs(args ...interface{}) error {
-	return (*nidhi.Query)(q).ReplaceArgs(args)
+func (q *{{ $lowerName }}Query) ReplaceArgs(args ...interface{}) ({{ $name }}Conj, error) {
+	nq, err := (*nidhi.Query)(q).ReplaceArgs(args)
+	if err != nil {
+		return nil, err
+	}
+	return (*{{ $lowerName }}Query)(nq), nil
 }
 
 func (q *{{ $lowerName }}Query) ToSql() (string, []interface{}, error) {

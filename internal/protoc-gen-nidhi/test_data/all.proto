@@ -9,7 +9,7 @@ import "google/protobuf/timestamp.proto";
 import "google/protobuf/any.proto";
 
 message All {
-  option (nidhi.prefix) = 'all';
+  option (nidhi.root) = true;
 
   string id = 1;
   string string_field = 2;
