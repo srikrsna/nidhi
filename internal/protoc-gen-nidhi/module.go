@@ -65,6 +65,9 @@ func (m *Module) InitContext(c pgs.BuildContext) {
 		"IsWKTDuration": func(f pgs.Field) bool {
 			return f.Type().Embed().WellKnownType() == pgs.DurationWKT
 		},
+		"IsEnum": func(f pgs.Field) bool {
+			return f.Type().IsEnum()
+		},
 		"Fields": func(msg pgs.Message) string {
 			var ff string
 			for _, f := range msg.Fields() {

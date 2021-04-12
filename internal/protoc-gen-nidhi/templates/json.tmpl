@@ -28,7 +28,9 @@ func (doc *{{ $name }}) MarshalDocument(w *jsoniter.Stream) error {
     first = nidhigen.WriteMarshaler(w, "{{ .Name | LowerCamel }}", doc.{{ . | Name }}, first)
 {{- else if . | IsBytes }}
 	first = nidhigen.WriteBytes(w, "{{ .Name | LowerCamel }}", doc.{{ . | Name }}, first)
-{{ else }}
+{{- else if . | IsEnum }}
+	first = nidhigen.WriteInt32(w, "{{ .Name | LowerCamel }}", int32(doc.{{ . | Name }}), first)
+{{- else }}
     first = nidhigen.Write{{ $gtype | Capitalise }}(w, "{{ .Name | LowerCamel }}", doc.{{ . | Name }}, first)
 {{- end }}
 {{- end }}
@@ -89,6 +91,8 @@ func (of *{{ $name }}) MarshalDocument(w *jsoniter.Stream) error {
 	nidhigen.WriteMarshalerOneOf(w, "{{ .Name | LowerCamel }}", of.{{ . | Name }})
 {{- else if . | IsBytes }}
 	nidhigen.WriteBytesOneOf(w, "{{ .Name | LowerCamel }}", of.{{ . | Name }})
+{{- else if . | IsEnum }}
+	nidhigen.WriteInt32OneOf(w, "{{ .Name | LowerCamel }}", int32(of.{{ . | Name }}))
 {{ else }}
 	nidhigen.Write{{ $gtype | Capitalise }}OneOf(w, "{{ .Name | LowerCamel }}", of.{{ . | Name }})
 {{- end }}
@@ -156,6 +160,8 @@ func (s *{{ $name }}Slice) UnmarshalDocument(r *jsoniter.Iterator) error {
 		r.Error = {{$fa}}.UnmarshalDocument(r)
 	{{- else if . | IsBytes }}
 		{{$fa}} = nidhigen.ReadByteSlice(r)
+	{{- else if . | IsEnum }}
+		{{$fa}} = {{ .Type.Enum | Name }}(r.ReadInt32())
 	{{- else }}
 		{{$fa}} = r.Read{{ $gtype | Capitalise }}()
 	{{- end }}
