@@ -28,8 +28,14 @@ type {{ $name }}Query interface {
 	{{ . | Name }}({{$gtype.Element}}) {{ $name }}Conj
 	{{- end }}
 {{- else if .Type.IsRepeated }}{{- $gtype := . | GoType }}
-{{- if or (not .Type.Element.IsEmbed) (not .Type.Element.Embed.IsWellKnown) }}
-	{{ . | Name }}({{ with not .Type.Element.IsEmbed }}nidhi.SliceOptions,{{ end }} ...{{ $gtype.Element }}) {{ $name }}Conj
+{{- if .Type.Element.IsEmbed }}
+	{{- if or (.Type.Element.Embed | IsWKTTime) (.Type.Element.Embed | IsWKTDuration) }}
+	{{ . | Name }}(nidhi.SliceOptions, ...{{ $gtype.Element }}) {{ $name }}Conj
+	{{- else }}
+	{{ . | Name }}( ...{{ $gtype.Element }}) {{ $name }}Conj
+	{{ end }}
+{{- else }}
+	{{ . | Name }}(nidhi.SliceOptions, ...{{ $gtype.Element }}) {{ $name }}Conj
 {{- end }}
 {{- else if .Type.IsEmbed }}
 	{{ . | Name }}() {{ $name }}{{ . | Name }}Query
@@ -103,20 +109,37 @@ func (q *{{ $lowerName }}Query) {{ . | Name }}(f {{ $gtype }}) {{ $name }}Conj {
 }	
 	{{ end }}
 	{{ else if .Type.IsRepeated }}{{- $gtype := . | GoType }}
-{{- if or (not .Type.Element.IsEmbed) (not .Type.Element.Embed.IsWellKnown) }}	
-func (q *{{ $lowerName }}Query) {{ . | Name }}({{ with not .Type.Element.IsEmbed }}opt nidhi.SliceOptions,{{ end }} arr ...{{ $gtype.Element }}) {{ $name }}Conj {
+{{- if .Type.Element.IsEmbed }}	
+{{- if or (.Type.Element.Embed | IsWKTTime) (.Type.Element.Embed | IsWKTDuration) }}
+func (q *{{ $lowerName }}Query) {{ . | Name }}(opt nidhi.SliceOptions, arr ...{{ $gtype.Element }}) {{ $name }}Conj {
 	(*nidhi.Query)(q).Field(
 		" "+nidhi.ColDoc+"->'{{ .Name | LowerCamel }}'",
-		{{- if .Type.Element.IsEmbed }}
+		&nidhi.SliceQuery{
+			Slice: nidhigen.{{ .Type.Element.Embed | Name }}SliceToArgs(arr),
+			Options: opt,
+		},	
+	)
+	return q
+}
+{{- else }}
+func (q *{{ $lowerName }}Query) {{ . | Name }}(arr ...{{ $gtype.Element }}) {{ $name }}Conj {
+	(*nidhi.Query)(q).Field(
+		" "+nidhi.ColDoc+"->'{{ .Name | LowerCamel }}'",
 		nidhi.MarshalerQuery{
 			Marshaler: {{ $gtype.Element.Value }}Slice(arr),
-		}
-		{{- else }}
+		},		
+	)
+	return q
+}
+{{- end }}
+{{- else }}
+	func (q *{{ $lowerName }}Query) {{ . | Name }}(opt nidhi.SliceOptions, arr ...{{ $gtype.Element }}) {{ $name }}Conj {
+	(*nidhi.Query)(q).Field(
+		" "+nidhi.ColDoc+"->'{{ .Name | LowerCamel }}'",		
 		&nidhi.SliceQuery{
 			Slice: arr,
 			Options: opt,
-		}
-		{{- end }},
+		},		
 	)
 	return q
 }

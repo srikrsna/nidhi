@@ -751,3 +751,20 @@ func ReadFieldMask(r *jsoniter.Iterator) *fieldmaskpb.FieldMask {
 		Paths: strings.Split(r.ReadString(), ","),
 	}
 }
+
+func TimestampSliceToArgs(in []*timestamppb.Timestamp) []string {
+	res := make([]string, 0, len(in))
+	for _, t := range in {
+		res = append(res, t.AsTime().Format(time.RFC3339))
+	}
+	return res
+}
+
+func DurationSliceToArgs(in []*durationpb.Duration) []int64 {
+	res := make([]int64, 0, len(in))
+	for _, d := range in {
+		res = append(res, d.GetSeconds())
+	}
+
+	return res
+}

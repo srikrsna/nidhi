@@ -50,20 +50,60 @@ func (m *Module) InitContext(c pgs.BuildContext) {
 		"IsBytes": func(f pgs.Field) bool {
 			return !f.Type().IsRepeated() && f.Type().ProtoType() == pgs.BytesT
 		},
-		"IsWKT": func(f pgs.Field) bool {
-			return f.Type().IsEmbed() && (f.Type().Embed().IsWellKnown() || f.Type().Embed().Name() == "FieldMask")
+		"IsWKT": func(f pgs.Node) bool {
+			if f, ok := f.(pgs.Field); ok {
+				return f.Type().IsEmbed() && (f.Type().Embed().IsWellKnown() || f.Type().Embed().Name() == "FieldMask")
+			}
+
+			if f, ok := f.(pgs.Message); ok {
+				return f.IsWellKnown() || f.Name() == "FieldMask"
+			}
+
+			return false
 		},
-		"IsWKTTime": func(f pgs.Field) bool {
-			return f.Type().Embed().WellKnownType() == pgs.TimestampWKT
+		"IsWKTTime": func(f pgs.Node) bool {
+			if f, ok := f.(pgs.Field); ok {
+				return f.Type().Embed().WellKnownType() == pgs.TimestampWKT
+			}
+
+			if f, ok := f.(pgs.Message); ok {
+				return f.WellKnownType() == pgs.TimestampWKT
+			}
+
+			return false
 		},
-		"IsWKTAny": func(f pgs.Field) bool {
-			return f.Type().Embed().WellKnownType() == pgs.AnyWKT
+		"IsWKTAny": func(f pgs.Node) bool {
+			if f, ok := f.(pgs.Field); ok {
+				return f.Type().Embed().WellKnownType() == pgs.AnyWKT
+			}
+
+			if f, ok := f.(pgs.Message); ok {
+				return f.WellKnownType() == pgs.AnyWKT
+			}
+
+			return false
 		},
-		"IsWKTFieldMask": func(f pgs.Field) bool {
-			return f.Type().Embed().Name() == "FieldMask"
+		"IsWKTFieldMask": func(f pgs.Node) bool {
+			if f, ok := f.(pgs.Field); ok {
+				return f.Type().Embed().Name() == "FieldMask"
+			}
+
+			if f, ok := f.(pgs.Message); ok {
+				return f.Name() == "FieldMask"
+			}
+
+			return false
 		},
-		"IsWKTDuration": func(f pgs.Field) bool {
-			return f.Type().Embed().WellKnownType() == pgs.DurationWKT
+		"IsWKTDuration": func(f pgs.Node) bool {
+			if f, ok := f.(pgs.Field); ok {
+				return f.Type().Embed().WellKnownType() == pgs.DurationWKT
+			}
+
+			if f, ok := f.(pgs.Message); ok {
+				return f.WellKnownType() == pgs.DurationWKT
+			}
+
+			return false
 		},
 		"IsEnum": func(f pgs.Field) bool {
 			return f.Type().IsEnum()
