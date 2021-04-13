@@ -15,6 +15,8 @@ type {{ $parent }}{{ $name }}Query interface {
 {{- else if . | IsWKT }}
 {{- if . | IsWKTTime }}
 	{{ . | Name }}(*nidhi.TimeQuery) {{ $root }}Conj
+{{- else if . | IsWKTDuration }}
+	{{ . | Name }}(*nidhi.DurationQuery) {{ $root }}Conj
 {{- else if . | IsWKTAny }}{{- $gtype := . | GoType }}
 	{{ . | Name }}({{$gtype.Element}}) {{ $root }}Conj
 {{- end }}
@@ -53,6 +55,11 @@ func (q *{{ $lowerName }}Query) {{ . | Name }}(f *nidhi.BoolQuery) {{ $root }}Co
 	{{ if . | IsWKTTime }}
 func (q *{{ $lowerName }}Query) {{ . | Name }}(f *nidhi.TimeQuery) {{ $root }}Conj {
 	(*nidhi.Query)(q).Field("->>'{{ .Name | LowerCamel }}')::timestamp", f)
+	return (*imp_{{ $root }}Query)(q)
+}
+	{{- else if . | IsWKTDuration }}
+func (q *{{ $lowerName }}Query) {{ . | Name }}(f *nidhi.DurationQuery) {{ $root }}Conj {
+	(*nidhi.Query)(q).Field("->>'{{ .Name | LowerCamel }}')::bigint", f)
 	return (*imp_{{ $root }}Query)(q)
 }
 	{{- else if . | IsWKTAny }}{{- $gtype := . | GoType }}

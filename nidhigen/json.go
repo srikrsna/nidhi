@@ -10,6 +10,7 @@ import (
 	jsoniter "github.com/json-iterator/go"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -312,6 +313,34 @@ func WriteTimestampSlice(w *jsoniter.Stream, field string, value []*timestamppb.
 	return false
 }
 
+func WriteDuration(w *jsoniter.Stream, field string, value *durationpb.Duration, first bool) bool {
+	if value == nil {
+		return first
+	}
+
+	if !first {
+		w.WriteMore()
+	}
+
+	WriteDurationOneOf(w, field, value)
+
+	return false
+}
+
+func WriteDurationSlice(w *jsoniter.Stream, field string, value []*durationpb.Duration, first bool) bool {
+	if value == nil {
+		return first
+	}
+
+	if !first {
+		w.WriteMore()
+	}
+
+	WriteDurationSliceOneOf(w, field, value)
+
+	return false
+}
+
 func WriteAny(w *jsoniter.Stream, field string, value *anypb.Any, first bool) bool {
 	if value == nil {
 		return first
@@ -608,6 +637,28 @@ func WriteTimestampSliceOneOf(w *jsoniter.Stream, field string, value []*timesta
 	w.WriteArrayEnd()
 }
 
+func WriteDurationOneOf(w *jsoniter.Stream, field string, value *durationpb.Duration) {
+	w.WriteObjectField(field)
+	w.WriteInt64(value.GetSeconds())
+}
+
+func WriteDurationSliceOneOf(w *jsoniter.Stream, field string, value []*durationpb.Duration) {
+	w.WriteObjectField(field)
+
+	if len(value) == 0 {
+		w.WriteEmptyArray()
+		return
+	}
+
+	w.WriteArrayStart()
+	w.WriteInt64(value[0].GetSeconds())
+	for _, v := range value[1:] {
+		w.WriteMore()
+		w.WriteInt64(v.GetSeconds())
+	}
+	w.WriteArrayEnd()
+}
+
 func WriteAnyOneOf(w *jsoniter.Stream, field string, value *anypb.Any) {
 	w.WriteObjectField(field)
 	buf, err := protojson.Marshal(value)
@@ -676,6 +727,12 @@ func ReadTimestamp(r *jsoniter.Iterator) *timestamppb.Timestamp {
 	}
 
 	return timestamppb.New(t)
+}
+
+func ReadDuration(r *jsoniter.Iterator) *durationpb.Duration {
+	return &durationpb.Duration{
+		Seconds: r.ReadInt64(),
+	}
 }
 
 func ReadAny(r *jsoniter.Iterator) *anypb.Any {

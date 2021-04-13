@@ -116,7 +116,7 @@ func (m *Module) Execute(files map[string]pgs.File, _ map[string]pgs.Package) []
 		}
 		m.AddGeneratorTemplateFile(name, m.tpl.Lookup("header"), &fileWrapper)
 
-		for _, msg := range file.Messages() {
+		for _, msg := range file.AllMessages() {
 			m.generateMarshaler(msg)
 
 			for _, f := range msg.Fields() {

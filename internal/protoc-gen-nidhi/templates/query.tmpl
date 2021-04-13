@@ -22,11 +22,15 @@ type {{ $name }}Query interface {
 {{- else if . | IsWKT }}
 	{{- if . | IsWKTTime }}
 	{{ . | Name }}(*nidhi.TimeQuery) {{ $name }}Conj
+	{{- else if . | IsWKTDuration }}
+	{{ . | Name }}(*nidhi.DurationQuery) {{ $name }}Conj
 	{{- else if . | IsWKTAny }}{{- $gtype := . | GoType }}
 	{{ . | Name }}({{$gtype.Element}}) {{ $name }}Conj
 	{{- end }}
 {{- else if .Type.IsRepeated }}{{- $gtype := . | GoType }}
+{{- if or (not .Type.Element.IsEmbed) (not .Type.Element.Embed.IsWellKnown) }}
 	{{ . | Name }}({{ with not .Type.Element.IsEmbed }}nidhi.SliceOptions,{{ end }} ...{{ $gtype.Element }}) {{ $name }}Conj
+{{- end }}
 {{- else if .Type.IsEmbed }}
 	{{ . | Name }}() {{ $name }}{{ . | Name }}Query
 {{- end }}
@@ -87,6 +91,11 @@ func (q *{{ $lowerName }}Query) {{ . | Name }}(f *nidhi.TimeQuery) {{ $name }}Co
 	(*nidhi.Query)(q).Field(" ("+nidhi.ColDoc+"->>'{{ .Name | LowerCamel }}')::timestamp", f)
 	return q
 }
+	{{- else if . | IsWKTDuration }}
+func (q *{{ $lowerName }}Query) {{ . | Name }}(f *nidhi.DurationQuery) {{ $name }}Conj {
+	(*nidhi.Query)(q).Field(" ("+nidhi.ColDoc+"->>'{{ .Name | LowerCamel }}')::bigint", f)
+	return q
+}
 	{{- else if . | IsWKTAny }}{{- $gtype := . | GoType }}
 func (q *{{ $lowerName }}Query) {{ . | Name }}(f {{ $gtype }}) {{ $name }}Conj {
 	(*nidhi.Query)(q).Field(" ("+nidhi.ColDoc+"->'{{ .Name | LowerCamel }}')", nidhi.MarshalerQuery{nidhigen.ProtoMarshaler{f}})
@@ -94,6 +103,7 @@ func (q *{{ $lowerName }}Query) {{ . | Name }}(f {{ $gtype }}) {{ $name }}Conj {
 }	
 	{{ end }}
 	{{ else if .Type.IsRepeated }}{{- $gtype := . | GoType }}
+{{- if or (not .Type.Element.IsEmbed) (not .Type.Element.Embed.IsWellKnown) }}	
 func (q *{{ $lowerName }}Query) {{ . | Name }}({{ with not .Type.Element.IsEmbed }}opt nidhi.SliceOptions,{{ end }} arr ...{{ $gtype.Element }}) {{ $name }}Conj {
 	(*nidhi.Query)(q).Field(
 		" "+nidhi.ColDoc+"->'{{ .Name | LowerCamel }}'",
@@ -110,6 +120,7 @@ func (q *{{ $lowerName }}Query) {{ . | Name }}({{ with not .Type.Element.IsEmbed
 	)
 	return q
 }
+{{- end }}
 	{{ else if .Type.IsEmbed }}
 func (q *{{ $lowerName }}Query) {{ . | Name }}() {{ $name }}{{ . | Name }}Query {
 	(*nidhi.Query)(q).Prefix(" (" + nidhi.ColDoc + "->'{{ .Name | LowerCamel }}'")

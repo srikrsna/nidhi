@@ -139,7 +139,7 @@ func (s *{{ $name }}Slice) UnmarshalDocument(r *jsoniter.Iterator) error {
 		{{- if .Type.Element.IsEmbed }}
 		{{- if .Type.Element.Embed.IsWellKnown }}
 			r.ReadArrayCB(func(r *jsoniter.Iterator) bool {
-				e := r.Read{{ .Type.Element.Embed.WellKnownType }}()
+				e := nidhigen.Read{{ .Type.Element.Embed.WellKnownType }}(r)
 				{{$fa}} = append({{$fa}}, e)
 				return true
 			})

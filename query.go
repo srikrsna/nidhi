@@ -251,6 +251,55 @@ func (i *IntQuery) ToQuery(name string, sb io.StringWriter, args *[]interface{})
 	return nil
 }
 
+type DurationQuery struct {
+	Eq       *time.Duration
+	Lte, Gte *time.Duration
+	Lt, Gt   *time.Duration
+}
+
+func (d *DurationQuery) ToQuery(name string, sb io.StringWriter, args *[]interface{}) error {
+	if d == nil {
+		return nil
+	}
+
+	first := true
+	wc := func(sym string, value interface{}) {
+		if !first {
+			sb.WriteString(" AND")
+		}
+		first = false
+		sb.WriteString(" ")
+		sb.WriteString(name)
+		sb.WriteString(" " + sym + " ?")
+		*args = append(*args, value)
+	}
+	if d.Eq != nil {
+		wc("=", int64(d.Eq.Seconds()))
+	}
+
+	if d.Lte != nil {
+		wc("<=", int64(d.Lte.Seconds()))
+	}
+
+	if d.Gte != nil {
+		wc(">=", int64(d.Gte.Seconds()))
+	}
+
+	if d.Lt != nil {
+		wc("<", int64(d.Lt.Seconds()))
+	}
+
+	if d.Gt != nil {
+		wc(">", int64(d.Gt.Seconds()))
+	}
+
+	if first {
+		return fmt.Errorf("nidhi: int filter %q not set", name)
+	}
+
+	return nil
+}
+
 type TimeQuery struct {
 	Eq       *time.Time
 	Lte, Gte *time.Time
