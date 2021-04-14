@@ -14,6 +14,7 @@ type {{ $name }}Collection struct {
 	*{{ $lowerName }}Collection
 
 	ogCol *nidhi.Collection
+	mdps []*nidhi.MetadataProvider
 }
 
 func Open{{ $name }}Collection(ctx context.Context, db *sql.DB, mdps ...*nidhi.MetadataProvider) (*{{ $name }}Collection, error) {
@@ -30,6 +31,7 @@ func Open{{ $name }}Collection(ctx context.Context, db *sql.DB, mdps ...*nidhi.M
 	return &{{ $name }}Collection{
 		&{{ $lowerName }}Collection{col: col},
 		ogCol,
+		mdps,
 	}, nil
 }
 
@@ -39,7 +41,12 @@ func (st *{{ $name }}Collection) BeginTx(ctx context.Context, opt *sql.TxOptions
 		return nil, err
 	}
 
-	return &{{ $name }}TxCollection{&{{ $lowerName }}Collection{txCol}, txCol}, nil
+	col, err := nidhi.WrapMetadataProviders(txCol, st.mdps)
+	if err != nil {
+		return nil, err
+	}
+
+	return &{{ $name }}TxCollection{&{{ $lowerName }}Collection{col}, txCol}, nil
 }
 
 func (st *{{ $name }}Collection) WithTransaction(tx *nidhi.TxToken) *{{ $name }}TxCollection {
