@@ -115,7 +115,7 @@ func WithGetOptions(o GetOptions) GetOption {
 	}
 }
 
-func WithGetViewMask(vm []string) GetOption {
+func WithGetViewMask(vm ...string) GetOption {
 	return func(opt *GetOptions) {
 		opt.ViewMask = vm
 	}

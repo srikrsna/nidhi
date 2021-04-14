@@ -101,7 +101,13 @@ func (q *Query) ReplaceArgs(args []interface{}) (*Query, error) {
 	query := strings.Builder{}
 	query.WriteString(q.query.String())
 
-	return &Query{err: q.err, query: &query, args: args}, nil
+	res := GetQuery()
+
+	res.err = q.err
+	res.query = &query
+	res.args = args
+
+	return res, nil
 }
 
 func (q *Query) ToSql() (string, []interface{}, error) {
