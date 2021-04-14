@@ -18,7 +18,7 @@ type Interface interface {
 
 type MetadataProvider struct {
 	Wrap func(col Interface) Interface
-	Keys    []string
+	Keys []string
 }
 
 func WrapMetadataProviders(col Interface, mdps []*MetadataProvider) (Interface, error) {
@@ -47,8 +47,17 @@ type MetadataMarshaler interface {
 type mdMarshaler []MetadataMarshaler
 
 func (md mdMarshaler) MarshalDocument(w *jsoniter.Stream) error {
+	if len(md) == 0 {
+		w.WriteEmptyObject()
+		return w.Error
+	}
+
 	w.WriteObjectStart()
-	for _, mm := range md {
+	if err := md[0].MarshalMetadata(w); err != nil {
+		return err
+	}
+	for _, mm := range md[1:] {
+		w.WriteMore()
 		if err := mm.MarshalMetadata(w); err != nil {
 			return err
 		}
