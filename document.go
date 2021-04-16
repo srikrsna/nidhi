@@ -112,15 +112,6 @@ func (NoopMarshaler) MarshalDocument(w *jsoniter.Stream) error {
 	return nil
 }
 
-func ToMarshaler(vv ...interface{}) []Marshaler {
-	mm := make([]Marshaler, 0, len(vv))
-	for _, v := range vv {
-		mm = append(mm, v.(Marshaler))
-	}
-
-	return mm
-}
-
 type JsonbArray []Marshaler
 
 func (j JsonbArray) Value() (driver.Value, error) {
