@@ -9,6 +9,7 @@ require (
 	github.com/google/gofuzz v1.2.0
 	github.com/google/uuid v1.1.2
 	github.com/json-iterator/go v1.1.10
+	github.com/lib/pq v1.1.1
 	github.com/lyft/protoc-gen-star v0.5.2
 	github.com/onsi/ginkgo v1.14.2
 	github.com/onsi/gomega v1.10.3
