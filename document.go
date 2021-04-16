@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	jsoniter "github.com/json-iterator/go"
+	"github.com/lib/pq"
 )
 
 type Document interface {
@@ -109,4 +110,39 @@ type NoopMarshaler struct {
 
 func (NoopMarshaler) MarshalDocument(w *jsoniter.Stream) error {
 	return nil
+}
+
+func ToMarshaler(vv ...interface{}) []Marshaler {
+	mm := make([]Marshaler, 0, len(vv))
+	for _, v := range vv {
+		mm = append(mm, v.(Marshaler))
+	}
+
+	return mm
+}
+
+type JsonbArray []Marshaler
+
+func (j JsonbArray) Value() (driver.Value, error) {
+	if j == nil {
+		return nil, nil
+	}
+
+	stream := jsoniter.ConfigDefault.BorrowStream(nil)
+	defer jsoniter.ConfigDefault.ReturnStream(stream)
+
+	var ba pq.ByteaArray
+	for _, v := range j {
+		stream.Reset(nil)
+		if err := v.MarshalDocument(stream); err != nil {
+			return nil, err
+		}
+
+		data := make([]byte, stream.Buffered())
+		copy(data, stream.Buffer())
+
+		ba = append(ba, data)
+	}
+
+	return ba.Value()
 }
