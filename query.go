@@ -58,7 +58,10 @@ func (q *Query) Paren(iq Sqlizer) {
 		q.err = err
 	}
 
+	q.query.Grow(len(query) + 4)
+	q.query.WriteString(" (")
 	q.query.WriteString(query)
+	q.query.WriteString(") ")
 	q.args = append(q.args, args...)
 }
 

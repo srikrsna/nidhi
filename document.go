@@ -5,6 +5,7 @@ import (
 	"database/sql/driver"
 	"errors"
 	"fmt"
+	"strings"
 
 	jsoniter "github.com/json-iterator/go"
 	"github.com/lib/pq"
@@ -119,20 +120,20 @@ func (j JsonbArray) Value() (driver.Value, error) {
 		return nil, nil
 	}
 
-	stream := jsoniter.ConfigDefault.BorrowStream(nil)
+	var sb strings.Builder
+	stream := jsoniter.ConfigDefault.BorrowStream(&sb)
 	defer jsoniter.ConfigDefault.ReturnStream(stream)
 
-	var ba pq.ByteaArray
+	ba := make(pq.StringArray, 0, len(j))
 	for _, v := range j {
-		stream.Reset(nil)
+		sb.Reset()
+		stream.Reset(&sb)
 		if err := v.MarshalDocument(stream); err != nil {
 			return nil, err
 		}
+		stream.Flush()
 
-		data := make([]byte, stream.Buffered())
-		copy(data, stream.Buffer())
-
-		ba = append(ba, data)
+		ba = append(ba, sb.String())
 	}
 
 	return ba.Value()
