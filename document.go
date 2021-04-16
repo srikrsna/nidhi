@@ -128,9 +128,11 @@ func (j JsonbArray) Value() (driver.Value, error) {
 	for _, v := range j {
 		sb.Reset()
 		stream.Reset(&sb)
+		stream.WriteArrayStart()
 		if err := v.MarshalDocument(stream); err != nil {
 			return nil, err
 		}
+		stream.WriteArrayEnd()
 		stream.Flush()
 
 		ba = append(ba, sb.String())
