@@ -75,7 +75,7 @@ func (q *Query) WhereMetadata(f Queryer) {
 }
 
 func (q *Query) Not() {
-	q.query.WriteString(" NOT")
+	q.query.WriteString(" NOT ")
 }
 
 func (q *Query) And() {
