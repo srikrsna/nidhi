@@ -12,6 +12,7 @@ import (
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
+	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/srikrsna/nidhi"
@@ -341,6 +342,34 @@ func WriteDurationSlice(w *jsoniter.Stream, field string, value []*durationpb.Du
 	return false
 }
 
+func WriteStruct(w *jsoniter.Stream, field string, value *structpb.Struct, first bool) bool {
+	if value == nil {
+		return first
+	}
+
+	if !first {
+		w.WriteMore()
+	}
+
+	WriteStructOneOf(w, field, value)
+
+	return false
+}
+
+func WriteStructSlice(w *jsoniter.Stream, field string, value []*structpb.Struct, first bool) bool {
+	if len(value) == 0 {
+		return first
+	}
+
+	if !first {
+		w.WriteMore()
+	}
+
+	WriteStructSliceOneOf(w, field, value)
+
+	return false
+}
+
 func WriteAny(w *jsoniter.Stream, field string, value *anypb.Any, first bool) bool {
 	if value == nil {
 		return first
@@ -659,6 +688,43 @@ func WriteDurationSliceOneOf(w *jsoniter.Stream, field string, value []*duration
 	w.WriteArrayEnd()
 }
 
+func WriteStructOneOf(w *jsoniter.Stream, field string, value *structpb.Struct) {
+	w.WriteObjectField(field)
+	buf, err := protojson.Marshal(value)
+	if err != nil {
+		w.Error = err
+		return
+	}
+
+	w.WriteVal(json.RawMessage(buf))
+}
+
+func WriteStructSliceOneOf(w *jsoniter.Stream, field string, value []*structpb.Struct) {
+	w.WriteObjectField(field)
+	if len(value) == 0 {
+		w.WriteEmptyArray()
+		return
+	}
+
+	w.WriteArrayStart()
+	buf, err := protojson.Marshal(value[0])
+	if err != nil {
+		w.Error = err
+		return
+	}
+	w.WriteVal(json.RawMessage(buf))
+	for _, v := range value[1:] {
+		w.WriteMore()
+		buf, err := protojson.Marshal(v)
+		if err != nil {
+			w.Error = err
+			return
+		}
+		w.WriteVal(json.RawMessage(buf))
+	}
+	w.WriteArrayEnd()
+}
+
 func WriteAnyOneOf(w *jsoniter.Stream, field string, value *anypb.Any) {
 	w.WriteObjectField(field)
 	buf, err := protojson.Marshal(value)
@@ -743,7 +809,20 @@ func ReadAny(r *jsoniter.Iterator) *anypb.Any {
 	if err := protojson.Unmarshal([]byte(buf), &any); err != nil {
 		r.ReportError("decoding any", err.Error())
 	}
+
 	return &any
+}
+
+func ReadStruct(r *jsoniter.Iterator) *structpb.Struct {
+	var buf json.RawMessage
+	r.ReadVal(&buf)
+
+	var st structpb.Struct
+	if err := protojson.Unmarshal([]byte(buf), &st); err != nil {
+		r.ReportError("decoding struct", err.Error())
+	}
+
+	return &st
 }
 
 func ReadFieldMask(r *jsoniter.Iterator) *fieldmaskpb.FieldMask {
