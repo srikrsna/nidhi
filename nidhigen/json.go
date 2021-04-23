@@ -14,6 +14,7 @@ import (
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	"github.com/srikrsna/nidhi"
 )
@@ -338,6 +339,34 @@ func WriteDurationSlice(w *jsoniter.Stream, field string, value []*durationpb.Du
 	}
 
 	WriteDurationSliceOneOf(w, field, value)
+
+	return false
+}
+
+func WriteDoubleValue(w *jsoniter.Stream, field string, value *wrapperspb.DoubleValue, first bool) bool {
+	if value == nil {
+		return first
+	}
+
+	if !first {
+		w.WriteMore()
+	}
+
+	WriteDoubleValueOneOf(w, field, value)
+
+	return false
+}
+
+func WriteInt64Value(w *jsoniter.Stream, field string, value *wrapperspb.Int64Value, first bool) bool {
+	if value == nil {
+		return first
+	}
+
+	if !first {
+		w.WriteMore()
+	}
+
+	WriteInt64ValueOneOf(w, field, value)
 
 	return false
 }
@@ -688,6 +717,24 @@ func WriteDurationSliceOneOf(w *jsoniter.Stream, field string, value []*duration
 	w.WriteArrayEnd()
 }
 
+func WriteDoubleValueOneOf(w *jsoniter.Stream, field string, value *wrapperspb.DoubleValue) {
+	w.WriteObjectField(field)
+	if value == nil {
+		w.WriteNil()
+		return
+	}
+	w.WriteFloat64(value.GetValue())
+}
+
+func WriteInt64ValueOneOf(w *jsoniter.Stream, field string, value *wrapperspb.Int64Value) {
+	w.WriteObjectField(field)
+	if value == nil {
+		w.WriteNil()
+		return
+	}
+	w.WriteInt64(value.GetValue())
+}
+
 func WriteStructOneOf(w *jsoniter.Stream, field string, value *structpb.Struct) {
 	w.WriteObjectField(field)
 	buf, err := protojson.Marshal(value)
@@ -799,6 +846,22 @@ func ReadDuration(r *jsoniter.Iterator) *durationpb.Duration {
 	return &durationpb.Duration{
 		Seconds: r.ReadInt64(),
 	}
+}
+
+func ReadInt64Value(r *jsoniter.Iterator) *wrapperspb.Int64Value {
+	if r.ReadNil() {
+		return nil
+	}
+
+	return &wrapperspb.Int64Value{Value: r.ReadInt64()}
+}
+
+func ReadDoubleValue(r *jsoniter.Iterator) *wrapperspb.DoubleValue {
+	if r.ReadNil() {
+		return nil
+	}
+
+	return &wrapperspb.DoubleValue{Value: r.ReadFloat64()}
 }
 
 func ReadAny(r *jsoniter.Iterator) *anypb.Any {
