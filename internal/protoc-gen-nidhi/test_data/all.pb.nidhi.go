@@ -73,57 +73,75 @@ func NewAllSchema(prefix string) *AllSchemaImp {
 func (s *AllSchemaImp) Id() nidhigen.StringField {
 	return nidhigen.StringField(s.id)
 }
+
 func (s *AllSchemaImp) StringField() nidhigen.StringField {
 	return nidhigen.StringField(s.stringField)
 }
+
 func (s *AllSchemaImp) Int32Field() nidhigen.IntField {
 	return nidhigen.IntField(s.int32Field)
 }
+
 func (s *AllSchemaImp) Int64Field() nidhigen.IntField {
 	return nidhigen.IntField(s.int64Field)
 }
+
 func (s *AllSchemaImp) Uint32Field() nidhigen.IntField {
 	return nidhigen.IntField(s.uint32Field)
 }
+
 func (s *AllSchemaImp) Uint64Field() nidhigen.IntField {
 	return nidhigen.IntField(s.uint64Field)
 }
+
 func (s *AllSchemaImp) FloatField() nidhigen.FloatField {
 	return nidhigen.FloatField(s.floatField)
 }
+
 func (s *AllSchemaImp) DoubleField() nidhigen.FloatField {
 	return nidhigen.FloatField(s.doubleField)
 }
+
 func (s *AllSchemaImp) BoolField() nidhigen.BoolField {
 	return nidhigen.BoolField(s.boolField)
 }
+
 func (s *AllSchemaImp) PrimitiveRepeated() nidhigen.UnorderedField {
 	return nidhigen.UnorderedField(s.primitiveRepeated)
 }
+
 func (s *AllSchemaImp) StringOneOf() nidhigen.StringField {
 	return nidhigen.StringField(s.stringOneOf)
 }
+
 func (s *AllSchemaImp) Int32OneOf() nidhigen.IntField {
 	return nidhigen.IntField(s.int32OneOf)
 }
+
 func (s *AllSchemaImp) Int64OneOf() nidhigen.IntField {
 	return nidhigen.IntField(s.int64OneOf)
 }
+
 func (s *AllSchemaImp) Uint32OneOf() nidhigen.IntField {
 	return nidhigen.IntField(s.uint32OneOf)
 }
+
 func (s *AllSchemaImp) Uint64OneOf() nidhigen.IntField {
 	return nidhigen.IntField(s.uint64OneOf)
 }
+
 func (s *AllSchemaImp) FloatOneOf() nidhigen.FloatField {
 	return nidhigen.FloatField(s.floatOneOf)
 }
+
 func (s *AllSchemaImp) DoubleOneOf() nidhigen.FloatField {
 	return nidhigen.FloatField(s.doubleOneOf)
 }
+
 func (s *AllSchemaImp) BoolOneOf() nidhigen.BoolField {
 	return nidhigen.BoolField(s.boolOneOf)
 }
+
 func (s *AllSchemaImp) SimpleObjectOneOf() *SimpleSchemaImp {
 	return s.simpleObjectOneOf
 }
@@ -133,15 +151,21 @@ func (s *AllSchemaImp) SimpleObjectField() *SimpleSchemaImp {
 func (s *AllSchemaImp) SimpleRepeated() nidhigen.UnorderedField {
 	return nidhigen.UnorderedField(s.simpleRepeated)
 }
+
 func (s *AllSchemaImp) NestedOne() *NestedOneSchemaImp {
 	return s.nestedOne
 }
 func (s *AllSchemaImp) Timestamp() nidhigen.TimeField {
 	return nidhigen.TimeField(s.timestamp)
 }
+
 func (s *AllSchemaImp) AnyField() nidhigen.UnorderedField {
 	return nidhigen.UnorderedField(s.anyField)
 }
+
+
+
+
 
 func (doc *All) MarshalDocument(w *jsoniter.Stream) error {
 	if doc == nil {
@@ -162,7 +186,6 @@ func (doc *All) MarshalDocument(w *jsoniter.Stream) error {
 	first = nidhigen.WriteFloat64(w, "doubleField", doc.DoubleField, first)
 	first = nidhigen.WriteBool(w, "boolField", doc.BoolField, first)
 	first = nidhigen.WriteBytes(w, "bytesField", doc.BytesField, first)
-
 	first = nidhigen.WriteStringSlice(w, "primitiveRepeated", doc.PrimitiveRepeated, first)
 	first = nidhigen.WriteMarshaler(w, "simpleObjectField", doc.SimpleObjectField, first)
 	first = nidhigen.WriteMarshaler(w, "simpleRepeated", SimpleSlice(doc.SimpleRepeated), first)
@@ -326,7 +349,6 @@ func (of *All_BoolOneOf) MarshalDocument(w *jsoniter.Stream) error {
 
 func (of *All_BytesOneOf) MarshalDocument(w *jsoniter.Stream) error {
 	nidhigen.WriteBytesOneOf(w, "bytesOneOf", of.BytesOneOf)
-
 	return w.Error
 }
 
@@ -366,6 +388,7 @@ func (s *AllSlice) UnmarshalDocument(r *jsoniter.Iterator) error {
 	return r.Error
 }
 
+
 type SimpleSchemaImp struct {
 	stringField string
 }
@@ -378,6 +401,10 @@ func NewSimpleSchema(prefix string) *SimpleSchemaImp {
 func (s *SimpleSchemaImp) StringField() nidhigen.StringField {
 	return nidhigen.StringField(s.stringField)
 }
+
+
+
+
 
 func (doc *Simple) MarshalDocument(w *jsoniter.Stream) error {
 	if doc == nil {
@@ -445,6 +472,7 @@ func (s *SimpleSlice) UnmarshalDocument(r *jsoniter.Iterator) error {
 	return r.Error
 }
 
+
 type NestedOneSchemaImp struct {
 	nestetedInt string
 	nested      *NestedTwoSchemaImp
@@ -463,15 +491,21 @@ func NewNestedOneSchema(prefix string) *NestedOneSchemaImp {
 func (s *NestedOneSchemaImp) NestetedInt() nidhigen.IntField {
 	return nidhigen.IntField(s.nestetedInt)
 }
+
 func (s *NestedOneSchemaImp) Nested() *NestedTwoSchemaImp {
 	return s.nested
 }
 func (s *NestedOneSchemaImp) T() nidhigen.TimeField {
 	return nidhigen.TimeField(s.t)
 }
+
 func (s *NestedOneSchemaImp) A() nidhigen.UnorderedField {
 	return nidhigen.UnorderedField(s.a)
 }
+
+
+
+
 
 func (doc *NestedOne) MarshalDocument(w *jsoniter.Stream) error {
 	if doc == nil {
@@ -549,6 +583,7 @@ func (s *NestedOneSlice) UnmarshalDocument(r *jsoniter.Iterator) error {
 	return r.Error
 }
 
+
 type NestedTwoSchemaImp struct {
 	someField string
 	nested    string
@@ -563,9 +598,14 @@ func NewNestedTwoSchema(prefix string) *NestedTwoSchemaImp {
 func (s *NestedTwoSchemaImp) SomeField() nidhigen.StringField {
 	return nidhigen.StringField(s.someField)
 }
+
 func (s *NestedTwoSchemaImp) Nested() nidhigen.UnorderedField {
 	return nidhigen.UnorderedField(s.nested)
 }
+
+
+
+
 
 func (doc *NestedTwo) MarshalDocument(w *jsoniter.Stream) error {
 	if doc == nil {
@@ -637,6 +677,7 @@ func (s *NestedTwoSlice) UnmarshalDocument(r *jsoniter.Iterator) error {
 	return r.Error
 }
 
+
 type NestedThreeSchemaImp struct {
 	some string
 }
@@ -649,6 +690,10 @@ func NewNestedThreeSchema(prefix string) *NestedThreeSchemaImp {
 func (s *NestedThreeSchemaImp) Some() nidhigen.StringField {
 	return nidhigen.StringField(s.some)
 }
+
+
+
+
 
 func (doc *NestedThree) MarshalDocument(w *jsoniter.Stream) error {
 	if doc == nil {
@@ -716,6 +761,7 @@ func (s *NestedThreeSlice) UnmarshalDocument(r *jsoniter.Iterator) error {
 	return r.Error
 }
 
+
 var ins_AllSchema = NewAllSchema(" (" + nidhi.ColDoc)
 
 func AllSchema() *AllSchemaImp {
@@ -734,6 +780,7 @@ type AllCollection struct {
 	*allCollection
 
 	ogCol *nidhi.Collection
+	mdps  []*nidhi.MetadataProvider
 }
 
 func OpenAllCollection(ctx context.Context, db *sql.DB, mdps ...*nidhi.MetadataProvider) (*AllCollection, error) {
@@ -750,6 +797,7 @@ func OpenAllCollection(ctx context.Context, db *sql.DB, mdps ...*nidhi.MetadataP
 	return &AllCollection{
 		&allCollection{col: col},
 		ogCol,
+		mdps,
 	}, nil
 }
 
@@ -759,7 +807,12 @@ func (st *AllCollection) BeginTx(ctx context.Context, opt *sql.TxOptions) (*AllT
 		return nil, err
 	}
 
-	return &AllTxCollection{&allCollection{txCol}, txCol}, nil
+	col, err := nidhi.WrapMetadataProviders(txCol, st.mdps)
+	if err != nil {
+		return nil, err
+	}
+
+	return &AllTxCollection{&allCollection{col}, txCol}, nil
 }
 
 func (st *AllCollection) WithTransaction(tx *nidhi.TxToken) *AllTxCollection {
@@ -854,6 +907,7 @@ type AllQuery interface {
 	SimpleObjectOneOf() AllSimpleObjectOneOfQuery
 	SimpleObjectField() AllSimpleObjectFieldQuery
 	SimpleRepeated(...*Simple) AllConj
+
 	NestedOne() AllNestedOneQuery
 	Timestamp(*nidhi.TimeQuery) AllConj
 	AnyField(*anypb.Any) AllConj
@@ -1061,6 +1115,7 @@ func (q *imp_AllSimpleObjectOneOfQuery) StringField(f *nidhi.StringQuery) AllCon
 	(*nidhi.Query)(q).Field("->>'stringField')", f)
 	return (*imp_AllQuery)(q)
 }
+	
 
 type AllSimpleObjectFieldQuery interface {
 	StringField(*nidhi.StringQuery) AllConj
@@ -1072,6 +1127,7 @@ func (q *imp_AllSimpleObjectFieldQuery) StringField(f *nidhi.StringQuery) AllCon
 	(*nidhi.Query)(q).Field("->>'stringField')", f)
 	return (*imp_AllQuery)(q)
 }
+	
 
 type AllNestedOneQuery interface {
 	NestetedInt(*nidhi.IntQuery) AllConj
@@ -1100,7 +1156,9 @@ func (q *imp_AllNestedOneQuery) T(f *nidhi.TimeQuery) AllConj {
 func (q *imp_AllNestedOneQuery) A(f *anypb.Any) AllConj {
 	(*nidhi.Query)(q).Field("->'a')", nidhi.MarshalerQuery{nidhigen.ProtoMarshaler{f}})
 	return (*imp_AllQuery)(q)
-}
+}	
+	
+	
 
 type AllNestedOneNestedQuery interface {
 	SomeField(*nidhi.StringQuery) AllConj
@@ -1123,3 +1181,4 @@ func (q *imp_AllNestedOneNestedQuery) Nested(arr ...*NestedThree) AllConj {
 	)
 	return (*imp_AllQuery)(q)
 }
+	
