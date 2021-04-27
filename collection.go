@@ -227,6 +227,13 @@ func (c *collection) Query(ctx context.Context, f Sqlizer, ctr func() Document, 
 	if err != nil {
 		return fmt.Errorf("nidhi: unable to paginate: %s, err: %w", c.table, err)
 	}
+
+	if qop.PaginationOptions == nil {
+		for _, ob := range qop.OrderBy {
+			st = st.OrderBy(ob.Field.Name() + order(ob.Desc).Direction())
+		}
+	}
+
 	var md sql.RawBytes
 	if len(qop.CreateMetadata) > 0 {
 		st = st.Column(ColMeta)
@@ -276,7 +283,7 @@ func (c *collection) Query(ctx context.Context, f Sqlizer, ctr func() Document, 
 		}
 	}
 
-	if err := rows.Err(); err != nil {
+	if err := rows.Close(); err != nil {
 		return fmt.Errorf("nidhi: unexpected error while querying collection: %s, err: %w", c.table, err)
 	}
 

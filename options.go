@@ -54,6 +54,8 @@ type QueryOptions struct {
 	PaginationOptions *PaginationOptions
 	ViewMask          []string
 	CreateMetadata    []func() MetadataUnmarshaler
+	// OrderBy fields are ignored if PaginationOptions are set
+	OrderBy []OrderBy
 }
 
 type QueryOption func(*QueryOptions)
@@ -79,6 +81,12 @@ func WithPaginationOptions(po *PaginationOptions) QueryOption {
 func WithQueryCreateMetadata(mcf ...func() MetadataUnmarshaler) QueryOption {
 	return func(qo *QueryOptions) {
 		qo.CreateMetadata = append(qo.CreateMetadata, mcf...)
+	}
+}
+
+func WithQueryOrderBy(ob ...OrderBy) QueryOption {
+	return func(qo *QueryOptions) {
+		qo.OrderBy = ob
 	}
 }
 
