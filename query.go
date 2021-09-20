@@ -8,6 +8,7 @@ import (
 	"time"
 
 	sq "github.com/elgris/sqrl"
+	"github.com/elgris/sqrl/pg"
 )
 
 type Sqlizer = sq.Sqlizer
@@ -120,6 +121,7 @@ func (q *Query) ToSql() (string, []interface{}, error) {
 type StringQuery struct {
 	Like *string
 	Eq   *string
+	In   []string
 }
 
 func (s *StringQuery) ToQuery(name string, sb io.StringWriter, args *[]interface{}) error {
@@ -138,6 +140,11 @@ func (s *StringQuery) ToQuery(name string, sb io.StringWriter, args *[]interface
 		sb.WriteString(" like ?")
 		*args = append(*args, *s.Like)
 		return nil
+	}
+	if len(s.In) > 0 {		
+		sb.WriteString(name)
+		sb.WriteString(" = Any(?::text[])")
+		*args = append(*args, pg.Array(s.In))
 	}
 
 	return fmt.Errorf("nidhi: string filter %q is not set", name)
