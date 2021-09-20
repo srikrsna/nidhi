@@ -221,7 +221,9 @@ func (c *collection) Query(ctx context.Context, f Sqlizer, ctr func() Document, 
 		st = st.Where(f)
 	}
 
-	st = st.Where(notDeleted)
+	if !qop.IncludeDeleted {
+		st = st.Where(notDeleted)
+	}
 
 	st, scans, err := addPagination(st, qop.PaginationOptions)
 	if err != nil {
