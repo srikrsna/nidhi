@@ -9,17 +9,18 @@ import (
 	sq "github.com/elgris/sqrl"
 )
 
-const idField = "(" + ColDoc + "->>'" + ColId + "')"
+const (
+	idField   = "(" + ColDoc + "->>'" + ColId + "')"
+	seperator = ":"
+)
 
 func addPagination(st *sq.SelectBuilder, op *PaginationOptions) (*sq.SelectBuilder, []interface{}, error) {
 	if op == nil {
 		return st, nil, nil
 	}
-
 	if len(op.OrderBy) == 0 {
 		op.OrderBy = append(op.OrderBy, OrderBy{Field: orderById{}})
 	}
-
 	var (
 		selections     []interface{}
 		orderByIdAdded bool
@@ -66,12 +67,9 @@ func addPagination(st *sq.SelectBuilder, op *PaginationOptions) (*sq.SelectBuild
 
 		st = st.OrderBy(f.Field.Name() + od.Direction())
 	}
-
 	if !orderByIdAdded {
 		st = st.OrderBy(ColId + order(op.Backward).Direction())
 	}
-
-	op.HasMore = false
 	return st.Limit(op.Limit + 1), selections, nil
 }
 
@@ -96,9 +94,9 @@ func (o order) Cursor() string {
 
 type Orderer interface {
 	Name() string
-	Encode(v interface{}, id string) string
-	Decode(cursor string) (interface{}, string, error)
-	New() interface{}
+	Encode(v any, id string) string
+	Decode(cursor string) (any, string, error)
+	New() any
 }
 
 var (
@@ -150,7 +148,7 @@ func (OrderByInt) Decode(cursor string) (interface{}, string, error) {
 
 	return v, splits[1], nil
 }
-func (OrderByInt) New() interface{} { return Int64(0) }
+func (OrderByInt) New() any { return Ptr[int64](0) }
 
 type OrderByFloat string
 
@@ -180,7 +178,7 @@ func (OrderByFloat) Decode(cursor string) (interface{}, string, error) {
 
 	return v, splits[1], nil
 }
-func (OrderByFloat) New() interface{} { return Float64(0) }
+func (OrderByFloat) New() interface{} { return Ptr[float64](0) }
 
 type OrderByString string
 
@@ -210,7 +208,7 @@ func (OrderByString) Decode(cursor string) (interface{}, string, error) {
 
 	return string(v), splits[1], nil
 }
-func (OrderByString) New() interface{} { return String("") }
+func (OrderByString) New() interface{} { return Ptr("") }
 
 type OrderByTime string
 
@@ -245,4 +243,4 @@ func (OrderByTime) Decode(cursor string) (interface{}, string, error) {
 
 	return tv, splits[1], nil
 }
-func (OrderByTime) New() interface{} { return Time(time.Time{}) }
+func (OrderByTime) New() interface{} { return Ptr(time.Time{}) }

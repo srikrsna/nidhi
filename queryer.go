@@ -141,7 +141,7 @@ func (s *StringQuery) ToQuery(name string, sb io.StringWriter, args *[]interface
 		*args = append(*args, *s.Like)
 		return nil
 	}
-	if len(s.In) > 0 {		
+	if len(s.In) > 0 {
 		sb.WriteString(name)
 		sb.WriteString(" = Any(?::text[])")
 		*args = append(*args, pg.Array(s.In))
@@ -365,116 +365,82 @@ func (t *TimeQuery) ToQuery(name string, sb io.StringWriter, args *[]interface{}
 	return nil
 }
 
-type SliceQuery struct {
-	Slice   interface{}
-	Options SliceOptions
-}
+// type SliceQuery[S ~[]S, E any] struct {
+// 	Slice   S
+// 	Options SliceOptions
+// }
 
-func (s *SliceQuery) ToQuery(name string, sb io.StringWriter, args *[]interface{}) error {
-	first := true
-	wc := func(sym string) {
-		if !first {
-			sb.WriteString(" AND")
-		}
-		first = false
-		sb.WriteString(" ")
-		sb.WriteString(name)
-		sb.WriteString(" " + sym + " ?")
-		*args = append(*args, Jsonb{s.Slice})
-	}
-	if s.Options.Eq != nil {
-		wc("=")
-	}
+// func (s *SliceQuery[S, E]) ToQuery(name string, sb io.StringWriter, args *S) error {
+// 	first := true
+// 	wc := func(sym string) {
+// 		if !first {
+// 			sb.WriteString(" AND")
+// 		}
+// 		first = false
+// 		sb.WriteString(" ")
+// 		sb.WriteString(name)
+// 		sb.WriteString(" " + sym + " ?")
+// 		*args = append(*args, Jsonb{s.Slice})
+// 	}
+// 	if s.Options.Eq != nil {
+// 		wc("=")
+// 	}
 
-	if s.Options.Neq != nil {
-		wc("<>")
-	}
+// 	if s.Options.Neq != nil {
+// 		wc("<>")
+// 	}
 
-	if s.Options.Lte != nil {
-		wc("<=")
-	}
+// 	if s.Options.Lte != nil {
+// 		wc("<=")
+// 	}
 
-	if s.Options.Gte != nil {
-		wc(">=")
-	}
+// 	if s.Options.Gte != nil {
+// 		wc(">=")
+// 	}
 
-	if s.Options.Lt != nil {
-		wc("<")
-	}
+// 	if s.Options.Lt != nil {
+// 		wc("<")
+// 	}
 
-	if s.Options.Gt != nil {
-		wc(">")
-	}
+// 	if s.Options.Gt != nil {
+// 		wc(">")
+// 	}
 
-	if s.Options.Ct != nil {
-		wc("@>")
-	}
+// 	if s.Options.Ct != nil {
+// 		wc("@>")
+// 	}
 
-	if s.Options.Ctb != nil {
-		wc("<@")
-	}
+// 	if s.Options.Ctb != nil {
+// 		wc("<@")
+// 	}
 
-	if s.Options.Ovl != nil {
-		wc("&&")
-	}
+// 	if s.Options.Ovl != nil {
+// 		wc("&&")
+// 	}
 
-	if first {
-		return fmt.Errorf("nidhi: int filter %q not set", name)
-	}
+// 	if first {
+// 		return fmt.Errorf("nidhi: int filter %q not set", name)
+// 	}
 
-	return nil
-}
+// 	return nil
+// }
 
-type MarshalerQuery struct {
-	Marshaler
-}
+// type MarshalerQuery struct {
+// 	Any any
+// }
 
-func (f MarshalerQuery) ToQuery(name string, w io.StringWriter, args *[]interface{}) error {
-	w.WriteString(name)
-	w.WriteString(" @> ?")
-	*args = append(*args, JSONB(NoopUnmarshaler(f)))
-	return nil
-}
+// func (f MarshalerQuery) ToQuery(name string, w io.StringWriter, args *[]any) error {
+// 	w.WriteString(name)
+// 	w.WriteString(" @> ?")
+// 	*args = append(*args, JSONB(f.Any))
+// 	return nil
+// }
 
 type SliceOptions struct {
 	// Equal (=), Not Equal (<>), Less than (<), Greater Than (>), Less than Equal (<=), Greater Than Equal (>=), Contains (@>), Contained By (<@), Overlap (&&)
 	Eq, Neq, Lt, Gt, Lte, Gte, Ct, Ctb, Ovl *struct{}
 }
 
-func String(s string) *string {
-	return &s
-}
-
-func Int64(i int64) *int64 {
-	return &i
-}
-
-func Int32(i int32) *int32 {
-	return &i
-}
-
-func Int(i int) *int {
-	return &i
-}
-
-func Float32(f float32) *float32 {
-	return &f
-}
-
-func Float64(f float64) *float64 {
-	return &f
-}
-
-func Bool(b bool) *bool {
-	return &b
-}
-
-func Time(t time.Time) *time.Time {
-	return &t
-}
-
-var marker = &struct{}{}
-
-func Struct() *struct{} {
-	return marker
+func Ptr[T any](v T) *T {
+	return &v
 }

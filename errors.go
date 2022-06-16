@@ -9,5 +9,5 @@ func (e Error) Error() string {
 const (
 	InvalidCursor         Error = "invalid cursor"
 	NotFound              Error = "not found"
-	DuplicateMetadataKeys Error = "two or more metadata providers using same keys"	
+	DuplicateMetadataKeys Error = "two or more metadata providers using same keys"
 )
