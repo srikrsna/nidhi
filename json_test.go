@@ -47,7 +47,7 @@ func TestGetJson(t *testing.T) {
 		md := nidhi.Metadata{"part": &metadataPart{Value: "some"}, "second": &metadataPart{}}
 		w, err := nidhi.GetJson(md)
 		attest.Ok(t, err)
-		attest.Equal(t, string(w.Buffer()), `{"part":{"value":"some"},"second":{}}`)
+		attest.True(t, string(w.Buffer()) == `{"part":{"value":"some"},"second":{}}` || string(w.Buffer()) == `{"second":{},"part":{"value":"some"}}`)
 		emd := nidhi.Metadata{"part": &metadataPart{}, "second": &metadataPart{}}
 		attest.Ok(t, nidhi.UnmarshalJson(w.Buffer(), emd))
 		attest.Equal(t, emd, md)
@@ -68,7 +68,7 @@ func TestGetJson(t *testing.T) {
 		attest.Ok(t, err)
 		w, err := nidhi.GetJson(pt)
 		attest.Ok(t, err)
-		attest.Equal(t, string(w.Buffer()), `{"@type":"type.googleapis.com/google.protobuf.Any", "value":{}}`)
+		attest.Equal(t, string(w.Buffer()), `{"@type":"type.googleapis.com/google.protobuf.Any","value":{}}`)
 		var gpt anypb.Any
 		attest.Ok(t, nidhi.UnmarshalJson(w.Buffer(), &gpt))
 		attest.Equal(t, &gpt, pt, attest.Cmp(protocmp.Transform()))
