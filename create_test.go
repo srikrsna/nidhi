@@ -26,19 +26,22 @@ func TestCreate(t *testing.T) {
 		res, err := store.Create(context.Background(), r, nidhi.CreateOptions{})
 		attest.Ok(t, err)
 		attest.NotZero(t, res)
-		ed := loadDoc(t, db, r.Id, nil)
+		ed := getDoc(t, db, r.Id, nil)
 		attest.Equal(t, ed.Revision, 1)
 		attest.Equal(t, ed.Value, r)
-		t.Run("replace", func(t *testing.T) {
-			t.Parallel()
-			r.Title = "Updated Title"
-			res, err = store.Create(context.Background(), r, nidhi.CreateOptions{Replace: true})
-			attest.Ok(t, err)
-			attest.NotZero(t, res)
-			ed := loadDoc(t, db, r.Id, nil)
-			attest.Equal(t, ed.Revision, 2)
-			attest.Equal(t, ed.Value, r)
-		})
+	})
+	t.Run("replace", func(t *testing.T) {
+		t.Parallel()
+		r := nidhi.Ptr(*baseResource)
+		r.Id = "replace"
+		storeDoc(t, db, r, nil)
+		r.Title = "Updated Title"
+		res, err := store.Create(context.Background(), r, nidhi.CreateOptions{Replace: true})
+		attest.Ok(t, err)
+		attest.NotZero(t, res)
+		ed := getDoc(t, db, r.Id, nil)
+		attest.Equal(t, ed.Revision, 2)
+		attest.Equal(t, ed.Value, r)
 	})
 	t.Run("new-metadata", func(t *testing.T) {
 		t.Parallel()
@@ -51,22 +54,26 @@ func TestCreate(t *testing.T) {
 		attest.Ok(t, err)
 		attest.NotZero(t, res)
 		emd := nidhi.Metadata{"part": &metadataPart{}}
-		ed := loadDoc(t, db, r.Id, emd)
+		ed := getDoc(t, db, r.Id, emd)
 		attest.Equal(t, ed.Revision, 1)
 		attest.Equal(t, ed.Value, r)
 		attest.Equal(t, emd, md)
-		t.Run("replace", func(t *testing.T) {
-			t.Parallel()
-			r.Title = "Updated Title"
-			md := nidhi.Metadata{"part": &metadataPart{Value: "updated"}}
-			res, err = store.Create(context.Background(), r, nidhi.CreateOptions{Replace: true, ReplaceMetadata: md})
-			attest.Ok(t, err)
-			attest.NotZero(t, res)
-			emd := nidhi.Metadata{"part": &metadataPart{}}
-			ed := loadDoc(t, db, r.Id, emd)
-			attest.Equal(t, ed.Revision, 2)
-			attest.Equal(t, ed.Value, r)
-			attest.Equal(t, emd, md)
-		})
+	})
+	t.Run("replace-meta", func(t *testing.T) {
+		t.Parallel()
+		r := nidhi.Ptr(*baseResource)
+		r.Id = "replace-meta"
+		md := nidhi.Metadata{"part": &metadataPart{Value: "some"}}
+		storeDoc(t, db, r, md)
+		r.Title = "Updated Title"
+		md = nidhi.Metadata{"part": &metadataPart{Value: "updated"}}
+		res, err := store.Create(context.Background(), r, nidhi.CreateOptions{Replace: true, ReplaceMetadata: md})
+		attest.Ok(t, err)
+		attest.NotZero(t, res)
+		emd := nidhi.Metadata{"part": &metadataPart{}}
+		ed := getDoc(t, db, r.Id, emd)
+		attest.Equal(t, ed.Revision, 2)
+		attest.Equal(t, ed.Value, r)
+		attest.Equal(t, emd, md)
 	})
 }

@@ -164,7 +164,31 @@ func newDB(tb testing.TB) *sql.DB {
 	return db
 }
 
-func loadDoc(t testing.TB, db *sql.DB, id string, md nidhi.Metadata) *nidhi.Document[resource] {
+func storeDoc(t testing.TB, db *sql.DB, r *resource, md nidhi.Metadata) {
+	rJSON, err := json.Marshal(r)
+	attest.Ok(t, err)
+	mdJSON := []byte("{}")
+	if md != nil {
+		mdb, err := nidhi.GetJson(md)
+		attest.Ok(t, err)
+		mdJSON = mdb.Buffer()
+	}
+	_, err = db.Exec(
+		fmt.Sprintf(
+			`INSERT INTO %s.%s (id, document, revision, metadata, deleted) VALUES ($1, $2, $3, $4, $5)`,
+			schema,
+			table,
+		),
+		r.Id,
+		rJSON,
+		1,
+		mdJSON,
+		false,
+	)
+	attest.Ok(t, err)
+}
+
+func getDoc(t testing.TB, db *sql.DB, id string, md nidhi.Metadata) *nidhi.Document[resource] {
 	var (
 		docJsonData, mdJsonData []byte
 		revision                int64
