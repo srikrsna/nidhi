@@ -188,22 +188,25 @@ func storeDoc(t testing.TB, db *sql.DB, r *resource, md nidhi.Metadata) {
 	attest.Ok(t, err)
 }
 
-func getDoc(t testing.TB, db *sql.DB, id string, md nidhi.Metadata) *nidhi.Document[resource] {
+func getDoc(t testing.TB, db *sql.DB, id string, md nidhi.Metadata, expErr error) *nidhi.Document[resource] {
 	var (
 		docJsonData, mdJsonData []byte
 		revision                int64
 		deleted                 bool
 	)
-	attest.Ok(t,
-		db.QueryRow(
-			fmt.Sprintf(
-				`SELECT document, revision, metadata, deleted FROM %s.%s WHERE id = $1`,
-				schema,
-				table,
-			),
-			id,
-		).Scan(&docJsonData, &revision, &mdJsonData, &deleted),
-	)
+	err := db.QueryRow(
+		fmt.Sprintf(
+			`SELECT document, revision, metadata, deleted FROM %s.%s WHERE id = $1`,
+			schema,
+			table,
+		),
+		id,
+	).Scan(&docJsonData, &revision, &mdJsonData, &deleted)
+	if expErr != nil {
+		attest.ErrorIs(t, err, expErr)
+		return nil
+	}
+	attest.Ok(t, err)
 	var er resource
 	attest.Ok(t, json.Unmarshal(docJsonData, &er))
 	if md != nil {
