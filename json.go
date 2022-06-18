@@ -19,8 +19,13 @@ func (b buffer) Buffer() []byte { return b }
 
 func getJson(v any) (bufferer, error) {
 	switch v := v.(type) {
+	case Metadata:
+		w := jsoniter.ConfigDefault.BorrowStream(nil)
+		v.writeJSON(w)
+		return w, w.Error
 	case protojsoniter.Writer:
 		w := jsoniter.ConfigDefault.BorrowStream(nil)
+		v.WriteJSON(w)
 		return w, w.Error
 	case proto.Message:
 		jsonData, err := protojson.Marshal(v)
@@ -46,6 +51,11 @@ func putJson(v bufferer) {
 
 func unmarshalJSON(b []byte, v any) error {
 	switch v := v.(type) {
+	case Metadata:
+		r := jsoniter.ConfigDefault.BorrowIterator(b)
+		defer jsoniter.ConfigDefault.ReturnIterator(r)
+		v.readJSON(r)
+		return r.Error
 	case protojsoniter.Reader:
 		r := jsoniter.ConfigDefault.BorrowIterator(b)
 		defer jsoniter.ConfigDefault.ReturnIterator(r)

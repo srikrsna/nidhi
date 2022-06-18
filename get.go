@@ -10,6 +10,18 @@ import (
 	"golang.org/x/exp/maps"
 )
 
+// Document is wrapper for a resource.
+type Document[T any] struct {
+	// Value is the resource.
+	Value *T
+	// Revision is the revision of this document.
+	Revision int64
+	// Metadata is the metadata of the document
+	Metadata Metadata
+	// Deleted indicates whether it a deleted document.
+	Deleted bool
+}
+
 // GetOptions are options for `Get` operation.
 type GetOptions struct {
 	// ViewMask if set will only populate fields listed in the mask.
@@ -19,12 +31,7 @@ type GetOptions struct {
 
 // QueryResult is the result of the get call.
 type GetResult[T any] struct {
-	// Doc is the result of the get query.
-	Doc *T
-	// Metadata is the metadata associated with the result.
-	Metadata Metadata
-	// Revision is the revision of the document.
-	Revision int64
+	Document[T]
 }
 
 // QueryOptions are options for the `Query` operation
@@ -75,9 +82,7 @@ type OrderBy struct {
 // QueryResult is the result of the query call.
 type QueryResult[T any] struct {
 	// Docs is the resulted docs for the query.
-	Docs []*T
-	// Metadata is the for the docs. It will match the exact len of Docs
-	Metadata []Metadata
+	Docs []*Document[T]
 	// LastCursor is the token of the last element of the result.
 	// It can be used to continue the search result.
 	LastCursor string
@@ -104,7 +109,7 @@ func (s *Store[T, Q]) Get(ctx context.Context, id string, opts GetOptions) (*Get
 		}
 		return nil, fmt.Errorf("nidhi: failed to get a document from collection %q, err: %w", s.table, err)
 	}
-	doc := s.ctr()
+	doc := new(T)
 	if err := unmarshalJSON(docBin, doc); err != nil {
 		return nil, fmt.Errorf("nidhi: failed to unmarshal document of type %s, err: %w", s.table, err)
 	}
@@ -116,13 +121,18 @@ func (s *Store[T, Q]) Get(ctx context.Context, id string, opts GetOptions) (*Get
 		return nil, fmt.Errorf("nidhi: failed to unmarshal metadata of parts %v, err: %w", maps.Keys(s.mdr), err)
 	}
 	return &GetResult[T]{
-		Doc:      doc,
-		Metadata: md,
-		Revision: revision,
+		Document[T]{
+			Value:    doc,
+			Metadata: md,
+			Revision: revision,
+		},
 	}, nil
 }
 
 // Query queries the store and returns all matching documents.
+//
+// TODO: Add load revisions
+// TODO: Return Deleted field
 func (s *Store[T, Q]) Query(ctx context.Context, q Q, opts QueryOptions) (*QueryResult[T], error) {
 	var selection interface{} = ColDoc
 	if len(s.fields) > 0 && len(opts.ViewMask) > 0 {
@@ -169,21 +179,26 @@ func (s *Store[T, Q]) Query(ctx context.Context, q Q, opts QueryOptions) (*Query
 		if err := rows.Scan(scans...); err != nil {
 			return nil, fmt.Errorf("nidhi: unexpected error while querying collection: %s, err: %w", s.table, err)
 		}
-		doc := s.ctr()
+		doc := new(T)
 		if err := unmarshalJSON(docBin, &doc); err != nil {
 			return nil, fmt.Errorf("nidhi: failed to unmarshal document of type %s, err: %w", s.table, err)
 		}
-		result.Docs = append(result.Docs, doc)
+		var md Metadata
 		if len(opts.LoadMetadataParts) > 0 {
-			md := make(Metadata, len(opts.LoadMetadataParts))
+			md = make(Metadata, len(opts.LoadMetadataParts))
 			for _, part := range opts.LoadMetadataParts {
 				md[part] = s.mdr[part]()
 			}
 			if err := unmarshalJSON(mdBin, md); err != nil {
 				return nil, fmt.Errorf("nidhi: failed to unmarshal metadata of parts %v, err: %w", opts.LoadMetadataParts, err)
 			}
-			result.Metadata = append(result.Metadata, md)
 		}
+		result.Docs = append(result.Docs, &Document[T]{
+			Value:    doc,
+			Revision: -1,
+			Metadata: md,
+			Deleted:  false,
+		})
 	}
 	if err := rows.Close(); err != nil {
 		return nil, fmt.Errorf("nidhi: unexpected error while querying collection: %s, err: %w", s.table, err)

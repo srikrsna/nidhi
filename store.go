@@ -47,13 +47,11 @@ type StoreOptions struct {
 type Store[T any, Q Sqlizer] struct {
 	db *sql.DB
 
-	schema, table string
-	fields        []string
+	table  string
+	fields []string
 
 	idFn    IdFn[T]
 	setIdFn SetIdFn[T]
-
-	ctr func() *T
 
 	mdr map[string]func() MetadataPart
 }
@@ -69,7 +67,6 @@ func NewStore[T any, Q Sqlizer](
 	fields []string,
 	idFn IdFn[T],
 	setIdFn SetIdFn[T],
-	ctr func() *T,
 	opts StoreOptions,
 ) (*Store[T, Q], error) {
 	if _, err := db.ExecContext(ctx, fmt.Sprintf(schemaTemplate, schema)); err != nil {
@@ -80,12 +77,10 @@ func NewStore[T any, Q Sqlizer](
 	}
 	return &Store[T, Q]{
 		db:      db,
-		schema:  schema,
-		table:   table,
+		table:   schema + "." + table,
 		fields:  fields,
 		idFn:    idFn,
 		setIdFn: setIdFn,
-		ctr:     ctr,
 		mdr:     opts.MetadataRegistry,
 	}, nil
 }

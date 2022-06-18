@@ -115,7 +115,7 @@ func (s *Store[T, Q]) DeleteMany(ctx context.Context, q Q, opts DeleteManyOption
 	}
 	deleteCount, err := res.RowsAffected()
 	if err != nil {
-		return nil, fmt.Errorf("nidhi: failed to get deleted document count for collection: %q, err: %w", err)
+		return nil, fmt.Errorf("nidhi: failed to get deleted document count for collection: %q, err: %w", s.table, err)
 	}
 	return &DeleteManyResult{
 		DeleteCount: deleteCount,

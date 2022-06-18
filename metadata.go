@@ -2,12 +2,6 @@ package nidhi
 
 import (
 	jsoniter "github.com/json-iterator/go"
-	"github.com/srikrsna/protojsoniter"
-)
-
-var (
-	_ protojsoniter.Reader = Metadata{}
-	_ protojsoniter.Writer = Metadata{}
 )
 
 // Metadata is the metadata stored against a document.
@@ -25,7 +19,7 @@ type MetadataPart interface {
 	UnmarshalMDP(r *jsoniter.Iterator)
 }
 
-func (m Metadata) WriteJSON(w *jsoniter.Stream) {
+func (m Metadata) writeJSON(w *jsoniter.Stream) {
 	w.WriteObjectStart()
 	var count int
 	for k, v := range m {
@@ -39,7 +33,7 @@ func (m Metadata) WriteJSON(w *jsoniter.Stream) {
 	w.WriteObjectEnd()
 }
 
-func (m Metadata) ReadJSON(r *jsoniter.Iterator) {
+func (m Metadata) readJSON(r *jsoniter.Iterator) {
 	for field := r.ReadObject(); field != ""; field = r.ReadObject() {
 		part, ok := m[field]
 		if ok {
