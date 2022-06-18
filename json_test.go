@@ -6,6 +6,7 @@ import (
 	"github.com/akshayjshah/attest"
 	jsoniter "github.com/json-iterator/go"
 	"github.com/srikrsna/nidhi"
+	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/anypb"
 )
@@ -68,7 +69,9 @@ func TestGetJson(t *testing.T) {
 		attest.Ok(t, err)
 		w, err := nidhi.GetJson(pt)
 		attest.Ok(t, err)
-		attest.Equal(t, string(w.Buffer()), `{"@type":"type.googleapis.com/google.protobuf.Any","value":{}}`)
+		var pany anypb.Any
+		protojson.Unmarshal(w.Buffer(), &pany)
+		attest.Equal(t, &pany, pt, attest.Cmp(protocmp.Transform()))
 		var gpt anypb.Any
 		attest.Ok(t, nidhi.UnmarshalJson(w.Buffer(), &gpt))
 		attest.Equal(t, &gpt, pt, attest.Cmp(protocmp.Transform()))
