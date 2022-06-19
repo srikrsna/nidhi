@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	seperator = ":"
+	separator = ":"
 )
 
 func addPagination(st *sq.SelectBuilder, scans []any, op *PaginationOptions, orderBy []OrderBy) (*sq.SelectBuilder, []any, error) {
@@ -124,7 +124,7 @@ func (i OrderByInt) Name() string {
 }
 
 func (OrderByInt) Encode(v any, id string) string {
-	return base64.URLEncoding.EncodeToString([]byte(strconv.FormatInt(*v.(*int64), 10) + seperator + id))
+	return base64.URLEncoding.EncodeToString([]byte(strconv.FormatInt(*v.(*int64), 10) + separator + id))
 }
 func (OrderByInt) Decode(cursor string) (any, string, error) {
 	dataBytes, err := base64.URLEncoding.DecodeString(cursor)
@@ -133,7 +133,7 @@ func (OrderByInt) Decode(cursor string) (any, string, error) {
 	}
 
 	data := string(dataBytes)
-	splits := strings.SplitN(data, seperator, 2)
+	splits := strings.SplitN(data, separator, 2)
 	if len(splits) != 2 {
 		return nil, "", ErrInvalidCursor
 	}
@@ -154,7 +154,7 @@ func (i OrderByFloat) Name() string {
 }
 
 func (OrderByFloat) Encode(v any, id string) string {
-	return base64.URLEncoding.EncodeToString([]byte(strconv.FormatFloat(*v.(*float64), 'g', 2, 64) + seperator + id))
+	return base64.URLEncoding.EncodeToString([]byte(strconv.FormatFloat(*v.(*float64), 'g', 2, 64) + separator + id))
 }
 func (OrderByFloat) Decode(cursor string) (any, string, error) {
 	dataBytes, err := base64.URLEncoding.DecodeString(cursor)
@@ -163,7 +163,7 @@ func (OrderByFloat) Decode(cursor string) (any, string, error) {
 	}
 
 	data := string(dataBytes)
-	splits := strings.SplitN(data, seperator, 2)
+	splits := strings.SplitN(data, separator, 2)
 	if len(splits) != 2 {
 		return nil, "", ErrInvalidCursor
 	}
@@ -184,7 +184,7 @@ func (i OrderByString) Name() string {
 }
 
 func (OrderByString) Encode(v any, id string) string {
-	return base64.URLEncoding.EncodeToString([]byte(base64.URLEncoding.EncodeToString([]byte(*v.(*string))) + seperator + id))
+	return base64.URLEncoding.EncodeToString([]byte(base64.URLEncoding.EncodeToString([]byte(*v.(*string))) + separator + id))
 }
 func (OrderByString) Decode(cursor string) (any, string, error) {
 	dataBytes, err := base64.URLEncoding.DecodeString(cursor)
@@ -193,7 +193,7 @@ func (OrderByString) Decode(cursor string) (any, string, error) {
 	}
 
 	data := string(dataBytes)
-	splits := strings.SplitN(data, seperator, 2)
+	splits := strings.SplitN(data, separator, 2)
 	if len(splits) != 2 {
 		return nil, "", ErrInvalidCursor
 	}
@@ -214,7 +214,7 @@ func (i OrderByTime) Name() string {
 }
 
 func (OrderByTime) Encode(v any, id string) string {
-	return base64.URLEncoding.EncodeToString([]byte(base64.URLEncoding.EncodeToString([]byte((*v.(*time.Time)).Format(time.RFC3339))) + seperator + id))
+	return base64.URLEncoding.EncodeToString([]byte(base64.URLEncoding.EncodeToString([]byte((*v.(*time.Time)).Format(time.RFC3339))) + separator + id))
 }
 func (OrderByTime) Decode(cursor string) (any, string, error) {
 	dataBytes, err := base64.URLEncoding.DecodeString(cursor)
@@ -223,7 +223,7 @@ func (OrderByTime) Decode(cursor string) (any, string, error) {
 	}
 
 	data := string(dataBytes)
-	splits := strings.SplitN(data, seperator, 2)
+	splits := strings.SplitN(data, separator, 2)
 	if len(splits) != 2 {
 		return nil, "", ErrInvalidCursor
 	}

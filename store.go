@@ -58,7 +58,7 @@ type Store[T any, Q Sqlizer] struct {
 
 // NewStore returns a new store.
 //
-// Typically this is never direclty called. It is called via a more concrete generated function.
+// Typically this is never directly called. It is called via a more concrete generated function.
 // See protoc-gen-nidhi.
 func NewStore[T any, Q Sqlizer](
 	ctx context.Context,

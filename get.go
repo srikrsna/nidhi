@@ -58,7 +58,7 @@ type PaginationOptions struct {
 	// Limit is the limit of pagination result.
 	Limit uint64
 	// Backward indicates the direction to fetch results from the cursor.
-	// The same result can be acheived by reversing the order.
+	// The same result can be achieved by reversing the order.
 	//
 	// As an example, for documents ordered by their creation time,
 	// With the cursor at the 50th record, one can keep fetching the next 50, and the next 50, and so on
@@ -129,8 +129,6 @@ func (s *Store[T, Q]) Get(ctx context.Context, id string, opts GetOptions) (*Get
 }
 
 // Query queries the store and returns all matching documents.
-//
-// TODO: Add load revisions
 func (s *Store[T, Q]) Query(ctx context.Context, q Q, opts QueryOptions) (*QueryResult[T], error) {
 	selection := any(ColDoc)
 	if len(s.fields) > 0 && len(opts.ViewMask) > 0 {

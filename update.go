@@ -37,7 +37,7 @@ type UpdateResult struct {
 
 // Replace replaces a document, matched using it's id, in the store.
 //
-// Retuns a NotFound error, if the document doesn't exist or the revision doesn't exist.
+// Returns a NotFound error, if the document doesn't exist or the revision doesn't exist.
 func (s *Store[T, Q]) Replace(ctx context.Context, doc *T, opts ReplaceOptions) (*ReplaceResult, error) {
 	docJSON, err := getJson(doc)
 	if err != nil {
