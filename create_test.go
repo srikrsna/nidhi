@@ -3,7 +3,6 @@ package nidhi_test
 import (
 	"context"
 	"testing"
-	"time"
 
 	"github.com/akshayjshah/attest"
 	"github.com/srikrsna/nidhi"
@@ -13,15 +12,10 @@ func TestCreate(t *testing.T) {
 	t.Parallel()
 	db := newDB(t)
 	store := newStore(t, db, nidhi.StoreOptions{})
-	baseResource := &resource{
-		Title:       "Resource",
-		DateOfBirth: time.Now().UTC(),
-		Age:         12,
-		CanDrive:    true,
-	}
+
 	t.Run("new", func(t *testing.T) {
 		t.Parallel()
-		r := nidhi.Ptr(*baseResource)
+		r := defaultResource()
 		r.Id = "create-new"
 		res, err := store.Create(context.Background(), r, nidhi.CreateOptions{})
 		attest.Ok(t, err)
@@ -32,7 +26,7 @@ func TestCreate(t *testing.T) {
 	})
 	t.Run("replace", func(t *testing.T) {
 		t.Parallel()
-		r := nidhi.Ptr(*baseResource)
+		r := defaultResource()
 		r.Id = "create-replace"
 		storeDoc(t, db, r, nil)
 		r.Title = "Updated Title"
@@ -45,7 +39,7 @@ func TestCreate(t *testing.T) {
 	})
 	t.Run("new-metadata", func(t *testing.T) {
 		t.Parallel()
-		r := nidhi.Ptr(*baseResource)
+		r := defaultResource()
 		r.Id = "create-new-meta"
 		md := nidhi.Metadata{"part": &metadataPart{Value: "some"}}
 		res, err := store.Create(context.Background(), r, nidhi.CreateOptions{
@@ -61,7 +55,7 @@ func TestCreate(t *testing.T) {
 	})
 	t.Run("replace-meta", func(t *testing.T) {
 		t.Parallel()
-		r := nidhi.Ptr(*baseResource)
+		r := defaultResource()
 		r.Id = "create-replace-meta"
 		md := nidhi.Metadata{"part": &metadataPart{Value: "some"}}
 		storeDoc(t, db, r, md)

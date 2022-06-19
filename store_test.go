@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/akshayjshah/attest"
+	"github.com/elgris/sqrl"
 	_ "github.com/jackc/pgx/v4/stdlib"
 	"github.com/ory/dockertest/v3"
 	"github.com/ory/dockertest/v3/docker"
@@ -223,5 +224,18 @@ func getDoc(t testing.TB, db *sql.DB, id string, md nidhi.Metadata, expErr error
 		revision,
 		md,
 		deleted,
+	}
+}
+
+func filterByAge(age int) sqrl.Sqlizer {
+	return sqrl.Expr(`JSON_VALUE(`+nidhi.ColDoc+`, '$.age' RETURNING INT`+`) = ?`, age)
+}
+
+func defaultResource() *resource {
+	return &resource{
+		Title:       "Resource",
+		DateOfBirth: time.Now().UTC(),
+		Age:         12,
+		CanDrive:    true,
 	}
 }

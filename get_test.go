@@ -3,7 +3,6 @@ package nidhi_test
 import (
 	"context"
 	"testing"
-	"time"
 
 	"github.com/akshayjshah/attest"
 	"github.com/srikrsna/nidhi"
@@ -15,15 +14,9 @@ func TestGet(t *testing.T) {
 	store := newStore(t, db, nidhi.StoreOptions{MetadataRegistry: map[string]func() nidhi.MetadataPart{
 		"part": func() nidhi.MetadataPart { return new(metadataPart) },
 	}})
-	baseResource := &resource{
-		Title:       "Resource",
-		DateOfBirth: time.Now().UTC(),
-		Age:         12,
-		CanDrive:    true,
-	}
 	t.Run("full", func(t *testing.T) {
 		t.Parallel()
-		r := nidhi.Ptr(*baseResource)
+		r := defaultResource()
 		r.Id = "get-full"
 		md := nidhi.Metadata{"part": &metadataPart{Value: "value"}}
 		storeDoc(t, db, r, md)
@@ -36,7 +29,7 @@ func TestGet(t *testing.T) {
 	})
 	t.Run("partial", func(t *testing.T) {
 		t.Parallel()
-		r := nidhi.Ptr(*baseResource)
+		r := defaultResource()
 		r.Id = "get-partial"
 		md := nidhi.Metadata{"part": &metadataPart{Value: "value"}}
 		storeDoc(t, db, r, md)
@@ -51,7 +44,7 @@ func TestGet(t *testing.T) {
 	})
 	t.Run("missing", func(t *testing.T) {
 		t.Parallel()
-		r := nidhi.Ptr(*baseResource)
+		r := defaultResource()
 		r.Id = "get-missing"
 		res, err := store.Get(context.Background(), r.Id, nidhi.GetOptions{})
 		attest.ErrorIs(t, err, nidhi.NotFound)
