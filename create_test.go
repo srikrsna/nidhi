@@ -22,7 +22,7 @@ func TestCreate(t *testing.T) {
 	t.Run("new", func(t *testing.T) {
 		t.Parallel()
 		r := nidhi.Ptr(*baseResource)
-		r.Id = "new"
+		r.Id = "create-new"
 		res, err := store.Create(context.Background(), r, nidhi.CreateOptions{})
 		attest.Ok(t, err)
 		attest.NotZero(t, res)
@@ -33,7 +33,7 @@ func TestCreate(t *testing.T) {
 	t.Run("replace", func(t *testing.T) {
 		t.Parallel()
 		r := nidhi.Ptr(*baseResource)
-		r.Id = "replace"
+		r.Id = "create-replace"
 		storeDoc(t, db, r, nil)
 		r.Title = "Updated Title"
 		res, err := store.Create(context.Background(), r, nidhi.CreateOptions{Replace: true})
@@ -46,7 +46,7 @@ func TestCreate(t *testing.T) {
 	t.Run("new-metadata", func(t *testing.T) {
 		t.Parallel()
 		r := nidhi.Ptr(*baseResource)
-		r.Id = "new-meta"
+		r.Id = "create-new-meta"
 		md := nidhi.Metadata{"part": &metadataPart{Value: "some"}}
 		res, err := store.Create(context.Background(), r, nidhi.CreateOptions{
 			CreateMetadata: md,
@@ -62,7 +62,7 @@ func TestCreate(t *testing.T) {
 	t.Run("replace-meta", func(t *testing.T) {
 		t.Parallel()
 		r := nidhi.Ptr(*baseResource)
-		r.Id = "replace-meta"
+		r.Id = "create-replace-meta"
 		md := nidhi.Metadata{"part": &metadataPart{Value: "some"}}
 		storeDoc(t, db, r, md)
 		r.Title = "Updated Title"
