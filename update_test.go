@@ -50,5 +50,4 @@ func TestReplace(t *testing.T) {
 			attest.Equal(t, got.Value, r)
 		})
 	})
-
 }
