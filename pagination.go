@@ -129,18 +129,18 @@ func (OrderByInt) Encode(v any, id string) string {
 func (OrderByInt) Decode(cursor string) (any, string, error) {
 	dataBytes, err := base64.URLEncoding.DecodeString(cursor)
 	if err != nil {
-		return nil, "", InvalidCursor
+		return nil, "", ErrInvalidCursor
 	}
 
 	data := string(dataBytes)
 	splits := strings.SplitN(data, seperator, 2)
 	if len(splits) != 2 {
-		return nil, "", InvalidCursor
+		return nil, "", ErrInvalidCursor
 	}
 
 	v, err := strconv.ParseInt(splits[0], 10, 64)
 	if err != nil {
-		return nil, "", InvalidCursor
+		return nil, "", ErrInvalidCursor
 	}
 
 	return v, splits[1], nil
@@ -159,18 +159,18 @@ func (OrderByFloat) Encode(v any, id string) string {
 func (OrderByFloat) Decode(cursor string) (any, string, error) {
 	dataBytes, err := base64.URLEncoding.DecodeString(cursor)
 	if err != nil {
-		return nil, "", InvalidCursor
+		return nil, "", ErrInvalidCursor
 	}
 
 	data := string(dataBytes)
 	splits := strings.SplitN(data, seperator, 2)
 	if len(splits) != 2 {
-		return nil, "", InvalidCursor
+		return nil, "", ErrInvalidCursor
 	}
 
 	v, err := strconv.ParseFloat(splits[0], 64)
 	if err != nil {
-		return nil, "", InvalidCursor
+		return nil, "", ErrInvalidCursor
 	}
 
 	return v, splits[1], nil
@@ -189,18 +189,18 @@ func (OrderByString) Encode(v any, id string) string {
 func (OrderByString) Decode(cursor string) (any, string, error) {
 	dataBytes, err := base64.URLEncoding.DecodeString(cursor)
 	if err != nil {
-		return nil, "", InvalidCursor
+		return nil, "", ErrInvalidCursor
 	}
 
 	data := string(dataBytes)
 	splits := strings.SplitN(data, seperator, 2)
 	if len(splits) != 2 {
-		return nil, "", InvalidCursor
+		return nil, "", ErrInvalidCursor
 	}
 
 	v, err := base64.URLEncoding.DecodeString(splits[0])
 	if err != nil {
-		return nil, "", InvalidCursor
+		return nil, "", ErrInvalidCursor
 	}
 
 	return string(v), splits[1], nil
@@ -219,23 +219,23 @@ func (OrderByTime) Encode(v any, id string) string {
 func (OrderByTime) Decode(cursor string) (any, string, error) {
 	dataBytes, err := base64.URLEncoding.DecodeString(cursor)
 	if err != nil {
-		return nil, "", InvalidCursor
+		return nil, "", ErrInvalidCursor
 	}
 
 	data := string(dataBytes)
 	splits := strings.SplitN(data, seperator, 2)
 	if len(splits) != 2 {
-		return nil, "", InvalidCursor
+		return nil, "", ErrInvalidCursor
 	}
 
 	v, err := base64.URLEncoding.DecodeString(splits[0])
 	if err != nil {
-		return nil, "", InvalidCursor
+		return nil, "", ErrInvalidCursor
 	}
 
 	tv, err := time.Parse(time.RFC3339, string(v))
 	if err != nil {
-		return nil, "", InvalidCursor
+		return nil, "", ErrInvalidCursor
 	}
 
 	return tv, splits[1], nil

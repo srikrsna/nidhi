@@ -104,7 +104,7 @@ func (s *Store[T, Q]) Get(ctx context.Context, id string, opts GetOptions) (*Get
 		Where(notDeleted)
 	if err := st.PlaceholderFormat(sq.Dollar).RunWith(s.db).QueryRowContext(ctx).Scan(&docBin, &revision, &mdBin); err != nil {
 		if err == sql.ErrNoRows {
-			return nil, NotFound
+			return nil, ErrNotFound
 		}
 		return nil, fmt.Errorf("nidhi: failed to get a document from collection %q, err: %w", s.table, err)
 	}

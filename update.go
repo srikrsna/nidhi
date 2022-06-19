@@ -59,7 +59,7 @@ func (s *Store[T, Q]) Replace(ctx context.Context, doc *T, opts ReplaceOptions) 
 		return nil, fmt.Errorf("nidhi: failed to put document in database: %w", err)
 	}
 	if rc != 1 {
-		return nil, NotFound
+		return nil, ErrNotFound
 	}
 	return &ReplaceResult{}, nil
 }

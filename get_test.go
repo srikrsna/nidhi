@@ -50,7 +50,7 @@ func TestGet(t *testing.T) {
 		r := defaultResource()
 		r.Id = "get-missing"
 		res, err := store.Get(context.Background(), r.Id, nidhi.GetOptions{})
-		attest.ErrorIs(t, err, nidhi.NotFound)
+		attest.ErrorIs(t, err, nidhi.ErrNotFound)
 		attest.Zero(t, res)
 	})
 }
