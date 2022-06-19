@@ -227,8 +227,19 @@ func getDoc(t testing.TB, db *sql.DB, id string, md nidhi.Metadata, expErr error
 	}
 }
 
+func markDeleted(t *testing.T, db *sql.DB, id string) {
+	_, err := db.Exec(fmt.Sprintf(`UPDATE %s.%s SET %s = TRUE WHERE %s = $1`, schema, table, nidhi.ColDel, nidhi.ColId), id)
+	attest.Ok(t, err)
+}
+
 func filterByAge(age int) sqrl.Sqlizer {
 	return sqrl.Expr(`JSON_VALUE(`+nidhi.ColDoc+`, '$.age' RETURNING INT`+`) = ?`, age)
+}
+
+func orderByDateOfBirth() nidhi.OrderBy {
+	return nidhi.OrderBy{
+		Field: nidhi.OrderByTime(fmt.Sprintf(`JSON_VALUE(%s, '$.dateOfBirth' RETURNING TIMESTAMP)`, nidhi.ColDoc)),
+	}
 }
 
 func defaultResource() *resource {
