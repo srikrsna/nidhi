@@ -97,13 +97,13 @@ func (s *Store[T, Q]) Get(ctx context.Context, id string, opts GetOptions) (*Get
 		selection = sq.Expr(ColDoc+" - ?::text[]", pg.Array(difference(s.fields, opts.ViewMask)))
 	}
 	var (
-		docBin, mdBin sql.RawBytes
+		docBin, mdBin []byte
 		revision      int64
 	)
-	st := sq.Select().Column(selection, ColRev, ColMeta).From(s.table).
+	st := sq.Select().Column(selection).Columns(ColRev, ColMeta).From(s.table).
 		Where(sq.Eq{ColId: id}).
 		Where(notDeleted)
-	if err := st.PlaceholderFormat(sq.Dollar).RunWith(s.db).QueryRowContext(ctx).Scan(&docBin, revision, &mdBin); err != nil {
+	if err := st.PlaceholderFormat(sq.Dollar).RunWith(s.db).QueryRowContext(ctx).Scan(&docBin, &revision, &mdBin); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, NotFound
 		}
