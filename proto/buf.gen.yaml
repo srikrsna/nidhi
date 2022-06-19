@@ -1,0 +1,9 @@
+version: v1
+managed:
+  enabled: true
+  go_package_prefix:
+    default: github.com/srikrsna/nidhi/internal/gen      
+plugins:
+  - remote: buf.build/protocolbuffers/plugins/go
+    opt: paths=source_relative
+    out: ../internal/gen

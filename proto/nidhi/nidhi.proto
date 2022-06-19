@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+package nidhi;
+
+import "google/protobuf/descriptor.proto";
+
+extend google.protobuf.FieldOptions {
+  // GenerateStore tells the plugin to generate a store for this Message
+  // The id will the field this option is set on
+  //
+  // There can only be one field in a message with document_id = true
+  bool document_id = 927829;
+}

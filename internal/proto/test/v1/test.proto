@@ -1,0 +1,10 @@
+syntax = "proto3";
+
+package test.v1;
+
+import "nidhi/nidhi.proto";
+
+message Test {
+  string id = 1 [(nidhi.document_id) = true];
+  string title = 2;
+}
