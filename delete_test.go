@@ -63,6 +63,19 @@ func TestDelete(t *testing.T) {
 		attest.True(t, doc.Deleted)
 		attest.Equal(t, emd, md)
 	})
+
+}
+
+func TestDeleteMany(t *testing.T) {
+	t.Parallel()
+	db := newDB(t)
+	store := newStore(t, db, nidhi.StoreOptions{})
+	baseResource := &resource{
+		Title:       "Resource",
+		DateOfBirth: time.Now().UTC(),
+		Age:         12,
+		CanDrive:    true,
+	}
 	t.Run("many-soft", func(t *testing.T) {
 		t.Parallel()
 		const age = 100
