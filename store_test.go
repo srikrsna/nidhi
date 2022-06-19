@@ -131,6 +131,11 @@ func newDB(tb testing.TB) *sql.DB {
 		},
 	)
 	attest.Ok(tb, err)
+	if deadliner, ok := tb.(interface{ Deadline() (time.Time, bool) }); ok {
+		if deadline, ok := deadliner.Deadline(); ok {
+			resource.Expire(uint(time.Until(deadline).Seconds()))
+		}
+	}
 	tb.Cleanup(func() {
 		err = pool.Purge(resource)
 		attest.Ok(tb, err)
@@ -189,6 +194,7 @@ func storeDoc(t testing.TB, db *sql.DB, r *resource, md nidhi.Metadata) {
 }
 
 func getDoc(t testing.TB, db *sql.DB, id string, md nidhi.Metadata, expErr error) *nidhi.Document[resource] {
+	t.Helper()
 	var (
 		docJsonData, mdJsonData []byte
 		revision                int64
