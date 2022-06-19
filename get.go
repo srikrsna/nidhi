@@ -41,7 +41,8 @@ type QueryOptions struct {
 	// ViewMask if set will only populate fields listed in the mask.
 	// Only top level fields are supported.
 	ViewMask []string
-	// OrderBy fields are ignored if PaginationOptions are set
+	// OrderBy if empty and pagination options field is set
+	// will default to sorting by id asc i.e. [{"id", false}]
 	OrderBy []OrderBy
 	// IncludeDeleted if set will include the soft deleted documents.
 	IncludeDeleted bool
@@ -54,8 +55,6 @@ type PaginationOptions struct {
 	// Cursor is the pagination cursor that the result should begin from.
 	// This is typically returned via the result of the operation.
 	Cursor string
-	// OrderBy fields, if empty defaults to [{"id", false}]
-	OrderBy []OrderBy
 	// Limit is the limit of pagination result.
 	Limit uint64
 	// Backward indicates the direction to fetch results from the cursor.
@@ -92,7 +91,7 @@ type QueryResult[T any] struct {
 
 // Get is used to get a document from the store.
 func (s *Store[T, Q]) Get(ctx context.Context, id string, opts GetOptions) (*GetResult[T], error) {
-	var selection interface{} = ColDoc
+	var selection any = ColDoc
 	if len(s.fields) > 0 && len(opts.ViewMask) > 0 {
 		selection = sq.Expr(ColDoc+" - ?::text[]", pg.Array(difference(s.fields, opts.ViewMask)))
 	}
@@ -132,32 +131,39 @@ func (s *Store[T, Q]) Get(ctx context.Context, id string, opts GetOptions) (*Get
 // Query queries the store and returns all matching documents.
 //
 // TODO: Add load revisions
-// TODO: Return Deleted field
 func (s *Store[T, Q]) Query(ctx context.Context, q Q, opts QueryOptions) (*QueryResult[T], error) {
-	var selection interface{} = ColDoc
+	selection := any(ColDoc)
 	if len(s.fields) > 0 && len(opts.ViewMask) > 0 {
 		selection = sq.Expr(ColDoc+" - ?::text[]", pg.Array(difference(s.fields, opts.ViewMask)))
 	}
-	st := sq.Select().Column(selection).From(s.table)
+	st := sq.Select().Column(selection).Column(ColRev).From(s.table)
+	var (
+		docBin   sql.RawBytes
+		revision int64
+		scans    = make([]any, 0, 6)
+	)
+	scans = append(scans, &docBin, &revision)
+	// Where Clause
 	if any(q) != nil {
 		st = st.Where(q)
 	}
+	var deleted bool
 	if !opts.IncludeDeleted {
 		st = st.Where(notDeleted)
+	} else {
+		st = st.Column(ColDel)
+		scans = append(scans, &deleted)
 	}
-	st, scans, err := addPagination(st, opts.PaginationOptions)
-	if err != nil {
-		return nil, fmt.Errorf("nidhi: failed to paginate: %s, err: %w", s.table, err)
-	}
-	if opts.PaginationOptions == nil {
-		for _, ob := range opts.OrderBy {
-			st = st.OrderBy(ob.Field.Name() + order(ob.Desc).Direction())
-		}
-	}
+	// Optional Metadata
 	var mdBin sql.RawBytes
 	if len(opts.LoadMetadataParts) > 0 {
 		st = st.Column(ColMeta)
 		scans = append(scans, &mdBin)
+	}
+	// Pagination
+	st, scans, err := addPagination(st, scans, opts.PaginationOptions, opts.OrderBy)
+	if err != nil {
+		return nil, fmt.Errorf("nidhi: failed to paginate: %s, err: %w", s.table, err)
 	}
 	rows, err := st.PlaceholderFormat(sq.Dollar).RunWith(s.db).QueryContext(ctx)
 	if err != nil {
@@ -165,14 +171,13 @@ func (s *Store[T, Q]) Query(ctx context.Context, q Q, opts QueryOptions) (*Query
 	}
 	defer rows.Close()
 	var (
-		count  uint64
-		docBin sql.RawBytes
-		result QueryResult[T]
+		count   uint64
+		hasMore bool
+		docs    []*Document[T]
 	)
-	scans = append([]any{&docBin}, scans...)
 	for rows.Next() {
-		if opts.PaginationOptions != nil && opts.PaginationOptions.Limit <= count {
-			result.HasMore = true
+		if opts.PaginationOptions != nil && opts.PaginationOptions.Limit == count {
+			hasMore = true
 			break
 		}
 		count++
@@ -180,7 +185,7 @@ func (s *Store[T, Q]) Query(ctx context.Context, q Q, opts QueryOptions) (*Query
 			return nil, fmt.Errorf("nidhi: unexpected error while querying collection: %s, err: %w", s.table, err)
 		}
 		doc := new(T)
-		if err := unmarshalJSON(docBin, &doc); err != nil {
+		if err := unmarshalJSON(docBin, doc); err != nil {
 			return nil, fmt.Errorf("nidhi: failed to unmarshal document of type %s, err: %w", s.table, err)
 		}
 		var md Metadata
@@ -193,28 +198,39 @@ func (s *Store[T, Q]) Query(ctx context.Context, q Q, opts QueryOptions) (*Query
 				return nil, fmt.Errorf("nidhi: failed to unmarshal metadata of parts %v, err: %w", opts.LoadMetadataParts, err)
 			}
 		}
-		result.Docs = append(result.Docs, &Document[T]{
+		docs = append(docs, &Document[T]{
 			Value:    doc,
-			Revision: -1,
+			Revision: revision,
 			Metadata: md,
-			Deleted:  false,
+			Deleted:  deleted,
 		})
 	}
 	if err := rows.Close(); err != nil {
 		return nil, fmt.Errorf("nidhi: unexpected error while querying collection: %s, err: %w", s.table, err)
 	}
+	var cursor string
 	if opts.PaginationOptions != nil {
-		offset := 0
+		// Skip doc and revision scan
+		scans = scans[2:]
 		if len(opts.LoadMetadataParts) > 0 {
-			offset = 1
+			// Skip md scan
+			scans = scans[1:]
 		}
-		if len(scans) == 2+offset {
-			result.LastCursor = *(scans[1].(*string))
+		if opts.IncludeDeleted {
+			// Skip deleted scan
+			scans = scans[1:]
+		}
+		if len(scans) == 1 {
+			cursor = *(scans[0].(*string))
 		} else {
-			result.LastCursor = opts.PaginationOptions.OrderBy[0].Field.Encode(scans[1], *(scans[2].(*string)))
+			cursor = opts.OrderBy[0].Field.Encode(scans[0], *(scans[1].(*string)))
 		}
 	}
-	return &result, nil
+	return &QueryResult[T]{
+		Docs:       docs,
+		LastCursor: cursor,
+		HasMore:    hasMore,
+	}, nil
 }
 
 func difference[S ~[]T, T comparable](slice1 S, slice2 S) S {

@@ -10,41 +10,40 @@ import (
 )
 
 const (
-	idField   = "(" + ColDoc + "->>'" + ColId + "')"
 	seperator = ":"
 )
 
-func addPagination(st *sq.SelectBuilder, op *PaginationOptions) (*sq.SelectBuilder, []interface{}, error) {
+func addPagination(st *sq.SelectBuilder, scans []any, op *PaginationOptions, orderBy []OrderBy) (*sq.SelectBuilder, []any, error) {
 	if op == nil {
-		return st, nil, nil
+		for _, ob := range orderBy {
+			st = st.OrderBy(ob.Field.Name() + order(ob.Desc).Direction())
+		}
+		return st, scans, nil
 	}
-	if len(op.OrderBy) == 0 {
-		op.OrderBy = append(op.OrderBy, OrderBy{Field: orderById{}})
+	if len(orderBy) == 0 {
+		orderBy = append(orderBy, OrderBy{Field: orderById{}})
 	}
 	var (
-		selections     []interface{}
 		orderByIdAdded bool
 	)
-	for i, f := range op.OrderBy {
+	for i, f := range orderBy {
 		od := order(f.Desc)
 		if op.Backward {
 			od = !od
 		}
-
 		if i == 0 {
-			if strings.TrimSpace(f.Field.Name()) == idField {
+			if strings.TrimSpace(f.Field.Name()) == ColId {
 				if op.Cursor != "" {
 					st = st.Where(ColId+od.Cursor(), op.Cursor)
 				}
 			} else {
-				selections = append(selections, f.Field.New())
+				scans = append(scans, f.Field.New())
 				st = st.Column(f.Field.Name())
 				if op.Cursor != "" {
 					v, id, err := f.Field.Decode(op.Cursor)
 					if err != nil {
 						return nil, nil, err
 					}
-
 					st = st.Where(
 						sq.Or{
 							sq.Expr(f.Field.Name()+od.Cursor(), v),
@@ -58,19 +57,17 @@ func addPagination(st *sq.SelectBuilder, op *PaginationOptions) (*sq.SelectBuild
 			}
 			st = st.Column(ColId)
 			var id string
-			selections = append(selections, &id)
+			scans = append(scans, &id)
 		}
-
-		if strings.TrimSpace(f.Field.Name()) == idField {
+		if strings.TrimSpace(f.Field.Name()) == ColId {
 			orderByIdAdded = true
 		}
-
 		st = st.OrderBy(f.Field.Name() + od.Direction())
 	}
 	if !orderByIdAdded {
 		st = st.OrderBy(ColId + order(op.Backward).Direction())
 	}
-	return st.Limit(op.Limit + 1), selections, nil
+	return st.Limit(op.Limit + 1), scans, nil
 }
 
 // true is descending
@@ -109,16 +106,16 @@ var (
 type orderById struct{}
 
 func (orderById) Name() string {
-	return idField
+	return ColId
 }
 
-func (orderById) Encode(v interface{}, id string) string {
+func (orderById) Encode(v any, id string) string {
 	return ""
 }
-func (orderById) Decode(cursor string) (interface{}, string, error) {
+func (orderById) Decode(cursor string) (any, string, error) {
 	return nil, "", nil
 }
-func (orderById) New() interface{} { return nil }
+func (orderById) New() any { return nil }
 
 type OrderByInt string
 
@@ -126,10 +123,10 @@ func (i OrderByInt) Name() string {
 	return `COALESCE(` + string(i) + `, 0)`
 }
 
-func (OrderByInt) Encode(v interface{}, id string) string {
+func (OrderByInt) Encode(v any, id string) string {
 	return base64.URLEncoding.EncodeToString([]byte(strconv.FormatInt(*v.(*int64), 10) + seperator + id))
 }
-func (OrderByInt) Decode(cursor string) (interface{}, string, error) {
+func (OrderByInt) Decode(cursor string) (any, string, error) {
 	dataBytes, err := base64.URLEncoding.DecodeString(cursor)
 	if err != nil {
 		return nil, "", InvalidCursor
@@ -156,10 +153,10 @@ func (i OrderByFloat) Name() string {
 	return `COALESCE(` + string(i) + `, 0)`
 }
 
-func (OrderByFloat) Encode(v interface{}, id string) string {
+func (OrderByFloat) Encode(v any, id string) string {
 	return base64.URLEncoding.EncodeToString([]byte(strconv.FormatFloat(*v.(*float64), 'g', 2, 64) + seperator + id))
 }
-func (OrderByFloat) Decode(cursor string) (interface{}, string, error) {
+func (OrderByFloat) Decode(cursor string) (any, string, error) {
 	dataBytes, err := base64.URLEncoding.DecodeString(cursor)
 	if err != nil {
 		return nil, "", InvalidCursor
@@ -178,7 +175,7 @@ func (OrderByFloat) Decode(cursor string) (interface{}, string, error) {
 
 	return v, splits[1], nil
 }
-func (OrderByFloat) New() interface{} { return Ptr[float64](0) }
+func (OrderByFloat) New() any { return Ptr[float64](0) }
 
 type OrderByString string
 
@@ -186,10 +183,10 @@ func (i OrderByString) Name() string {
 	return `COALESCE(` + string(i) + `, '')`
 }
 
-func (OrderByString) Encode(v interface{}, id string) string {
+func (OrderByString) Encode(v any, id string) string {
 	return base64.URLEncoding.EncodeToString([]byte(base64.URLEncoding.EncodeToString([]byte(*v.(*string))) + seperator + id))
 }
-func (OrderByString) Decode(cursor string) (interface{}, string, error) {
+func (OrderByString) Decode(cursor string) (any, string, error) {
 	dataBytes, err := base64.URLEncoding.DecodeString(cursor)
 	if err != nil {
 		return nil, "", InvalidCursor
@@ -208,7 +205,7 @@ func (OrderByString) Decode(cursor string) (interface{}, string, error) {
 
 	return string(v), splits[1], nil
 }
-func (OrderByString) New() interface{} { return Ptr("") }
+func (OrderByString) New() any { return Ptr("") }
 
 type OrderByTime string
 
@@ -216,10 +213,10 @@ func (i OrderByTime) Name() string {
 	return `COALESCE(` + string(i) + `, '1970-01-01T00:00:00Z'::timestamp)`
 }
 
-func (OrderByTime) Encode(v interface{}, id string) string {
+func (OrderByTime) Encode(v any, id string) string {
 	return base64.URLEncoding.EncodeToString([]byte(base64.URLEncoding.EncodeToString([]byte((*v.(*time.Time)).Format(time.RFC3339))) + seperator + id))
 }
-func (OrderByTime) Decode(cursor string) (interface{}, string, error) {
+func (OrderByTime) Decode(cursor string) (any, string, error) {
 	dataBytes, err := base64.URLEncoding.DecodeString(cursor)
 	if err != nil {
 		return nil, "", InvalidCursor
@@ -243,4 +240,4 @@ func (OrderByTime) Decode(cursor string) (interface{}, string, error) {
 
 	return tv, splits[1], nil
 }
-func (OrderByTime) New() interface{} { return Ptr(time.Time{}) }
+func (OrderByTime) New() any { return Ptr(time.Time{}) }
