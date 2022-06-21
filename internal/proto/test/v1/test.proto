@@ -7,4 +7,14 @@ import "nidhi/nidhi.proto";
 message Test {
   string id = 1 [(nidhi.document_id) = true];
   string title = 2;
+  SubTest sub_test = 3;
+  repeated SubTest sub_tests = 4;
+}
+
+message SubTest {
+  string name = 1;
+  message InnerTest {
+    string yes = 1;
+  }
+  InnerTest inner = 2;
 }

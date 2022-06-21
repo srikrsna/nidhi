@@ -1,6 +1,7 @@
 package main
 
 import (
+	"log"
 	"os"
 	"path"
 	"path/filepath"
@@ -9,6 +10,14 @@ import (
 	"github.com/srikrsna/nidhi/internal/gen/nidhi"
 	"google.golang.org/protobuf/compiler/protogen"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/types/known/fieldmaskpb"
+	"google.golang.org/protobuf/types/known/structpb"
+	"google.golang.org/protobuf/types/known/timestamppb"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 	"google.golang.org/protobuf/types/pluginpb"
 )
 
@@ -18,6 +27,29 @@ const (
 	nidhiPkg                   = protogen.GoImportPath("github.com/srikrsna/nidhi")
 	contextPkg                 = protogen.GoImportPath("context")
 	sqlPkg                     = protogen.GoImportPath("database/sql")
+)
+
+var (
+	wktSet = map[protoreflect.FullName]bool{
+		(new(structpb.NullValue)).Descriptor().FullName():                  true,
+		(&structpb.Struct{}).ProtoReflect().Descriptor().FullName():        true,
+		(&structpb.ListValue{}).ProtoReflect().Descriptor().FullName():     true,
+		(&structpb.Value{}).ProtoReflect().Descriptor().FullName():         true,
+		(&fieldmaskpb.FieldMask{}).ProtoReflect().Descriptor().FullName():  true,
+		(&timestamppb.Timestamp{}).ProtoReflect().Descriptor().FullName():  true,
+		(&durationpb.Duration{}).ProtoReflect().Descriptor().FullName():    true,
+		(&anypb.Any{}).ProtoReflect().Descriptor().FullName():              true,
+		(&emptypb.Empty{}).ProtoReflect().Descriptor().FullName():          true,
+		(&wrapperspb.BoolValue{}).ProtoReflect().Descriptor().FullName():   true,
+		(&wrapperspb.StringValue{}).ProtoReflect().Descriptor().FullName(): true,
+		(&wrapperspb.BytesValue{}).ProtoReflect().Descriptor().FullName():  true,
+		(&wrapperspb.Int32Value{}).ProtoReflect().Descriptor().FullName():  true,
+		(&wrapperspb.Int64Value{}).ProtoReflect().Descriptor().FullName():  true,
+		(&wrapperspb.UInt32Value{}).ProtoReflect().Descriptor().FullName(): true,
+		(&wrapperspb.UInt64Value{}).ProtoReflect().Descriptor().FullName(): true,
+		(&wrapperspb.FloatValue{}).ProtoReflect().Descriptor().FullName():  true,
+		(&wrapperspb.DoubleValue{}).ProtoReflect().Descriptor().FullName(): true,
+	}
 )
 
 func main() {
@@ -33,15 +65,19 @@ func main() {
 }
 
 func gen(plugin *protogen.Plugin, file *protogen.File) {
-	var msgToGen []*protogen.Message
-	for _, msg := range file.Messages {
-		for _, field := range msg.Fields {
+	type messageToGen struct {
+		*protogen.Message
+		*protogen.Field
+	}
+	var messagesToGen []messageToGen
+	for _, message := range file.Messages {
+		for _, field := range message.Fields {
 			if proto.GetExtension(field.Desc.Options(), nidhi.E_DocumentId).(bool) {
-				msgToGen = append(msgToGen, msg)
+				messagesToGen = append(messagesToGen, messageToGen{message, field})
 			}
 		}
 	}
-	if len(msgToGen) == 0 {
+	if len(messagesToGen) == 0 {
 		return
 	}
 	file.GoPackageName += generatedPackageSuffix
@@ -60,8 +96,8 @@ func gen(plugin *protogen.Plugin, file *protogen.File) {
 		)),
 	)
 	genHeader(genFile, file)
-	for _, msg := range msgToGen {
-		genMsg(genFile, msg)
+	for _, message := range messagesToGen {
+		genMessage(genFile, message.Message, message.Field)
 	}
 }
 
@@ -78,39 +114,185 @@ func genHeader(g *protogen.GeneratedFile, file *protogen.File) {
 	g.P()
 }
 
-func genMsg(g *protogen.GeneratedFile, msg *protogen.Message) {
-	var idField *protogen.Field
-	for _, field := range msg.Fields {
-		if field.Oneof != nil {
-			continue
-		}
-		if proto.GetExtension(field.Desc.Options(), nidhi.E_DocumentId).(bool) {
-			idField = field
-			break
-		}
+func genMessage(g *protogen.GeneratedFile, message *protogen.Message, idField *protogen.Field) {
+	genSchema(g, message, idField)
+	genNewStore(g, message, idField)
+	genFields(g, message, idField)
+}
+
+func genSchema(g *protogen.GeneratedFile, message *protogen.Message, idField *protogen.Field) {
+	g.P("// ", message.GoIdent.GoName, "Schema is the set of path selectors for the ", message.GoIdent.GoName, " type.")
+	g.P("var ", message.GoIdent.GoName, "Schema = struct {")
+	lowerMessageName := lowerMessageName(message)
+	for _, field := range message.Fields {
+		g.P(field.GoName, " ", lowerMessageName, field.GoName)
 	}
-	if idField == nil {
-		panic("should not be possible")
-	}
-	g.P("// New", msg.GoIdent.GoName, "Store is a document store for ", msg.GoIdent.GoName)
-	g.P("func New", msg.GoIdent.GoName, "Store(")
+	g.P("}{}")
+}
+
+func genNewStore(g *protogen.GeneratedFile, m *protogen.Message, id *protogen.Field) {
+	g.P("// New", m.GoIdent.GoName, "Store is a document store for ", m.GoIdent.GoName)
+	g.P("func New", m.GoIdent.GoName, "Store(")
 	g.P("ctx ", contextPkg.Ident("Context"), ",")
 	g.P("db *", sqlPkg.Ident("DB"), ",")
 	g.P("opt ", nidhiPkg.Ident("StoreOptions"), ",")
-	g.P(") (*", nidhiPkg.Ident("Store"), "[", msg.GoIdent, ", ", nidhiPkg.Ident("Sqlizer"), "], error) {")
-	g.P("return ", nidhiPkg.Ident("NewStore"), "[", msg.GoIdent, ", ", nidhiPkg.Ident("Sqlizer"), "] (")
+	g.P(") (*", nidhiPkg.Ident("Store"), "[", m.GoIdent, ", ", nidhiPkg.Ident("Sqlizer"), "], error) {")
+	g.P("return ", nidhiPkg.Ident("NewStore"), "[", m.GoIdent, ", ", nidhiPkg.Ident("Sqlizer"), "] (")
 	g.P("ctx,")
 	g.P("db,")
-	g.P(`"`, strings.ReplaceAll(string(msg.Desc.ParentFile().Package()), ".", "_"), `",`)
-	g.P(`"`, strings.ToLower(msg.GoIdent.GoName), `",`)
+	g.P(`"`, strings.ReplaceAll(string(m.Desc.ParentFile().Package()), ".", "_"), `",`)
+	g.P(`"`, strings.ToLower(m.GoIdent.GoName), `",`)
 	g.P("[]string{")
-	for _, field := range msg.Fields {
+	for _, field := range m.Fields {
 		g.P(`"`, field.Desc.JSONName(), `",`)
 	}
 	g.P("},")
-	g.P("func(x *", msg.GoIdent, ") string { return x.", idField.GoName, " },")
-	g.P("func(x *", msg.GoIdent, ", id string) {x.", idField.GoName, " = id },")
+	g.P("func(x *", m.GoIdent, ") string { return x.", id.GoName, " },")
+	g.P("func(x *", m.GoIdent, ", id string) {x.", id.GoName, " = id },")
 	g.P("opt,")
 	g.P(")")
 	g.P("}")
+}
+
+func genFields(g *protogen.GeneratedFile, m *protogen.Message, id *protogen.Field) {
+	fieldEmbed := genFieldInterface(g, m)
+	genSelectors(g, m, fieldEmbed, lowerMessageName(m), "$", 0)
+}
+
+func genSelectors(g *protogen.GeneratedFile, m *protogen.Message, fieldEmbed, typePrefix, dbPrefix string, inSlice uint) {
+	for _, field := range m.Fields {
+		typeName := typePrefix + field.GoName
+		g.P("type ", typeName, " struct{ ")
+		g.P(fieldEmbed)
+		if field.Message != nil {
+			for _, subField := range field.Message.Fields {
+				g.P(subField.GoName, " ", typePrefix, field.GoName, subField.GoName)
+			}
+		}
+		g.P("}")
+		genSelectorFunc(g, field, typeName, dbPrefix, inSlice)
+		if field.Message != nil {
+			var (
+				sliceExt   string
+				sliceCount uint
+			)
+			if field.Desc.IsList() {
+				sliceExt = "[*]"
+				sliceCount = 1
+			}
+			genSelectors(g, field.Message, fieldEmbed, typePrefix+field.GoName, dbPrefix+"."+field.Desc.JSONName()+sliceExt, inSlice+sliceCount)
+		}
+	}
+}
+
+func genSelectorFunc(g *protogen.GeneratedFile, field *protogen.Field, fieldType, prefix string, inSlice uint) {
+	dataType, defaultValue := getDbTypeAndDefault(field, inSlice)
+	g.P("func (", fieldType, ") Selector() string { return `JSON_VALUE('", prefix+"."+field.Desc.JSONName(), "' RETURNING ", dataType, " DEFAULT ", defaultValue, " ON EMPTY)` }")
+}
+
+func genFieldInterface(g *protogen.GeneratedFile, m *protogen.Message) string {
+	g.P("type ", m.GoIdent.GoName, "Field interface {")
+	g.P("Selector() string")
+	g.P(lowerMessageName(m), "Field()")
+	g.P("}")
+	g.P("type base", m.GoIdent.GoName, "Field struct{}")
+	fieldEmbed := "base" + m.GoIdent.GoName + "Field"
+	g.P("func (", fieldEmbed, ") ", lowerMessageName(m), "Field() {}")
+	return fieldEmbed
+}
+
+func lowerMessageName(m *protogen.Message) string {
+	return strings.ToLower(m.GoIdent.GoName[:1]) + m.GoIdent.GoName[1:]
+}
+
+func getDbTypeAndDefault(field *protogen.Field, inSlice uint) (typ string, def string) {
+	defer func() {
+		if field.Desc.HasOptionalKeyword() {
+			def = "NULL"
+		}
+		sliceCount := inSlice
+		if field.Desc.IsList() {
+			sliceCount++
+		}
+		if sliceCount > 0 && typ != "JSONB" {
+			typ += strings.Repeat("[]", int(sliceCount))
+			def = "'{}'"
+		}
+	}()
+	switch {
+	case field.Desc.IsMap():
+		return "JSONB", "'{}'"
+	case field.Message != nil:
+		if wktSet[field.Message.Desc.FullName()] {
+			return lkpWktDbTyp(field.Message.Desc.FullName())
+		} else {
+			return "JSONB", "'{}'"
+		}
+	case field.Enum != nil:
+		vd := field.Enum.Desc.Values().ByNumber(0)
+		if vd == nil {
+			log.Println("Enum doesn't have a ZERO based default value")
+		}
+		return "TEXT", "'" + string(vd.Name()) + "'"
+	default:
+		// Only scalar fields
+		return lkpScalarDbTyp(field.Desc.Kind())
+	}
+}
+
+func lkpScalarDbTyp(kind protoreflect.Kind) (string, string) {
+	switch kind {
+	case protoreflect.StringKind, protoreflect.BytesKind:
+		return "TEXT", "''"
+	case protoreflect.BoolKind:
+		return "BOOLEAN", "FALSE"
+	case protoreflect.DoubleKind:
+		return "DOUBLE PRECISION", "0"
+	case protoreflect.FloatKind:
+		return "REAL", "0"
+	case protoreflect.Int32Kind, protoreflect.Sint32Kind, protoreflect.Sfixed32Kind, protoreflect.Uint32Kind, protoreflect.Fixed32Kind:
+		return "INTEGER", "0"
+	case protoreflect.Int64Kind, protoreflect.Sint64Kind, protoreflect.Sfixed64Kind, protoreflect.Uint64Kind, protoreflect.Fixed64Kind:
+		return "BIGINT", "0"
+	default:
+		panic("there seems to be buf")
+
+	}
+}
+
+func lkpWktDbTyp(name protoreflect.FullName) (string, string) {
+	switch name {
+	case (&structpb.Struct{}).ProtoReflect().Descriptor().FullName(),
+		(&structpb.ListValue{}).ProtoReflect().Descriptor().FullName(),
+		(&structpb.Value{}).ProtoReflect().Descriptor().FullName(),
+		(&anypb.Any{}).ProtoReflect().Descriptor().FullName(),
+		(new(structpb.NullValue)).Descriptor().FullName():
+		return "JSONB", "NULL"
+	case (&fieldmaskpb.FieldMask{}).ProtoReflect().Descriptor().FullName():
+		return "TEXT", "''"
+	case (&timestamppb.Timestamp{}).ProtoReflect().Descriptor().FullName():
+		return "TIMESTAMP", "'1970-01-01 00:00:00'"
+	case (&durationpb.Duration{}).ProtoReflect().Descriptor().FullName():
+		return "SECOND P 6 ", "'0s'"
+	case (&emptypb.Empty{}).ProtoReflect().Descriptor().FullName():
+		return "JSONB", "'{}'"
+	case (&wrapperspb.BoolValue{}).ProtoReflect().Descriptor().FullName():
+		return "BOOLEAN", "FALSE"
+	case (&wrapperspb.StringValue{}).ProtoReflect().Descriptor().FullName(), (&wrapperspb.BytesValue{}).ProtoReflect().Descriptor().FullName():
+		return "TEXT", "''"
+	case (&wrapperspb.Int32Value{}).ProtoReflect().Descriptor().FullName():
+		return "INTEGER", "0"
+	case (&wrapperspb.Int64Value{}).ProtoReflect().Descriptor().FullName():
+		return "BIGINT", "0"
+	case (&wrapperspb.UInt32Value{}).ProtoReflect().Descriptor().FullName():
+		return "INTEGER", "0"
+	case (&wrapperspb.UInt64Value{}).ProtoReflect().Descriptor().FullName():
+		return "BIGINT", "0"
+	case (&wrapperspb.FloatValue{}).ProtoReflect().Descriptor().FullName():
+		return "REAL", "0"
+	case (&wrapperspb.DoubleValue{}).ProtoReflect().Descriptor().FullName():
+		return "DOUBLE PRECISION", "0"
+	default:
+		panic("unknown wkt")
+	}
 }

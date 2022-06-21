@@ -4,7 +4,7 @@ managed:
   go_package_prefix:
     default: github.com/srikrsna/nidhi/internal/gen      
 plugins:
-  - remote: buf.build/protocolbuffers/plugins/go
+  - name: go
     opt: paths=source_relative
     out: ../gen
   - name: nidhi

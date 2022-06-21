@@ -11,6 +11,14 @@ import (
 	v1 "github.com/srikrsna/nidhi/internal/gen/test/v1"
 )
 
+// TestSchema is the set of path selectors for the Test type.
+var TestSchema = struct {
+	Id       testId
+	Title    testTitle
+	SubTest  testSubTest
+	SubTests testSubTests
+}{}
+
 // NewTestStore is a document store for Test
 func NewTestStore(
 	ctx context.Context,
@@ -25,9 +33,101 @@ func NewTestStore(
 		[]string{
 			"id",
 			"title",
+			"subTest",
+			"subTests",
 		},
 		func(x *v1.Test) string { return x.Id },
 		func(x *v1.Test, id string) { x.Id = id },
 		opt,
 	)
+}
+
+type TestField interface {
+	Selector() string
+	testField()
+}
+type baseTestField struct{}
+
+func (baseTestField) testField() {}
+
+type testId struct {
+	baseTestField
+}
+
+func (testId) Selector() string { return `JSON_VALUE('$.id' RETURNING TEXT DEFAULT '' ON EMPTY)` }
+
+type testTitle struct {
+	baseTestField
+}
+
+func (testTitle) Selector() string { return `JSON_VALUE('$.title' RETURNING TEXT DEFAULT '' ON EMPTY)` }
+
+type testSubTest struct {
+	baseTestField
+	Name  testSubTestName
+	Inner testSubTestInner
+}
+
+func (testSubTest) Selector() string {
+	return `JSON_VALUE('$.subTest' RETURNING JSONB DEFAULT '{}' ON EMPTY)`
+}
+
+type testSubTestName struct {
+	baseTestField
+}
+
+func (testSubTestName) Selector() string {
+	return `JSON_VALUE('$.subTest.name' RETURNING TEXT DEFAULT '' ON EMPTY)`
+}
+
+type testSubTestInner struct {
+	baseTestField
+	Yes testSubTestInnerYes
+}
+
+func (testSubTestInner) Selector() string {
+	return `JSON_VALUE('$.subTest.inner' RETURNING JSONB DEFAULT '{}' ON EMPTY)`
+}
+
+type testSubTestInnerYes struct {
+	baseTestField
+}
+
+func (testSubTestInnerYes) Selector() string {
+	return `JSON_VALUE('$.subTest.inner.yes' RETURNING TEXT DEFAULT '' ON EMPTY)`
+}
+
+type testSubTests struct {
+	baseTestField
+	Name  testSubTestsName
+	Inner testSubTestsInner
+}
+
+func (testSubTests) Selector() string {
+	return `JSON_VALUE('$.subTests' RETURNING JSONB DEFAULT '{}' ON EMPTY)`
+}
+
+type testSubTestsName struct {
+	baseTestField
+}
+
+func (testSubTestsName) Selector() string {
+	return `JSON_VALUE('$.subTests[*].name' RETURNING TEXT[] DEFAULT '{}' ON EMPTY)`
+}
+
+type testSubTestsInner struct {
+	baseTestField
+	Yes testSubTestsInnerYes
+}
+
+func (testSubTestsInner) Selector() string {
+	return `JSON_VALUE('$.subTests[*].inner' RETURNING JSONB DEFAULT '{}' ON EMPTY)`
+}
+
+type testSubTestsInnerYes struct {
+	baseTestField
+}
+
+func (testSubTestsInnerYes) Selector() string {
+	return `JSON_VALUE('$.subTests[*].inner.yes' RETURNING TEXT[] DEFAULT '{}' ON EMPTY)`
 }
