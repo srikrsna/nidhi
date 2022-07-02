@@ -5,6 +5,8 @@ const (
 	ErrInvalidCursor Error = "invalid-cursor"
 	// ErrNotFound is returned when a document is not found.
 	ErrNotFound Error = "not-found"
+	// ErrInvalidCond is returned by Cond in an invalid state.
+	ErrInvalidCond Error = "invalid-cond"
 )
 
 // Error is the underlying error type returned by functions/methods of this package.
