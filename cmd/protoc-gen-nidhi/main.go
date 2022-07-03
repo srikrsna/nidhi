@@ -116,8 +116,22 @@ func genHeader(g *protogen.GeneratedFile, file *protogen.File) {
 
 func genMessage(g *protogen.GeneratedFile, message *protogen.Message, idField *protogen.Field) {
 	genSchema(g, message, idField)
+	genQuery(g, message)
+	genConj(g, message)
 	genNewStore(g, message, idField)
 	genFields(g, message, idField)
+}
+
+func genQuery(g *protogen.GeneratedFile, message *protogen.Message) {
+	name := message.GoIdent.GoName
+	g.P("// ", name, "Query is an alias for nidhi.Query[", name, "Field]")
+	g.P("type ", name, "Query = nidhi.Query[", name, "Field]")
+}
+
+func genConj(g *protogen.GeneratedFile, message *protogen.Message) {
+	name := message.GoIdent.GoName
+	g.P("// ", name, "Conj is an alias for nidhi.Conj[", name, "Field]")
+	g.P("type ", name, "Conj = nidhi.Conj[", name, "Field]")
 }
 
 func genSchema(g *protogen.GeneratedFile, message *protogen.Message, idField *protogen.Field) {
@@ -136,8 +150,8 @@ func genNewStore(g *protogen.GeneratedFile, m *protogen.Message, id *protogen.Fi
 	g.P("ctx ", contextPkg.Ident("Context"), ",")
 	g.P("db *", sqlPkg.Ident("DB"), ",")
 	g.P("opt ", nidhiPkg.Ident("StoreOptions"), ",")
-	g.P(") (*", nidhiPkg.Ident("Store"), "[", m.GoIdent, ", ", nidhiPkg.Ident("Sqlizer"), "], error) {")
-	g.P("return ", nidhiPkg.Ident("NewStore"), "[", m.GoIdent, ", ", nidhiPkg.Ident("Sqlizer"), "] (")
+	g.P(") (*", nidhiPkg.Ident("Store"), "[", m.GoIdent, "], error) {")
+	g.P("return ", nidhiPkg.Ident("NewStore"), "(")
 	g.P("ctx,")
 	g.P("db,")
 	g.P(`"`, strings.ReplaceAll(string(m.Desc.ParentFile().Package()), ".", "_"), `",`)
@@ -188,11 +202,12 @@ func genSelectors(g *protogen.GeneratedFile, m *protogen.Message, fieldEmbed, ty
 func genSelectorFunc(g *protogen.GeneratedFile, field *protogen.Field, fieldType, prefix string, inSlice uint) {
 	dataType, defaultValue := getDbTypeAndDefault(field, inSlice)
 	g.P("func (", fieldType, ") Selector() string { return `JSON_VALUE('", prefix+"."+field.Desc.JSONName(), "' RETURNING ", dataType, " DEFAULT ", defaultValue, " ON EMPTY)` }")
+	// func (f testId) Is(c *nidhi.StringCond) (testId, nidhi.Cond) { return f, c }
 }
 
 func genFieldInterface(g *protogen.GeneratedFile, m *protogen.Message) string {
 	g.P("type ", m.GoIdent.GoName, "Field interface {")
-	g.P("Selector() string")
+	g.P(nidhiPkg.Ident("Field"))
 	g.P(lowerMessageName(m), "Field()")
 	g.P("}")
 	g.P("type base", m.GoIdent.GoName, "Field struct{}")

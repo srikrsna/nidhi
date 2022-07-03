@@ -19,13 +19,19 @@ var TestSchema = struct {
 	SubTests testSubTests
 }{}
 
+// TestQuery is an alias for nidhi.Query[TestField]
+type TestQuery = nidhi.Query[TestField]
+
+// TestConj is an alias for nidhi.Conj[TestField]
+type TestConj = nidhi.Conj[TestField]
+
 // NewTestStore is a document store for Test
 func NewTestStore(
 	ctx context.Context,
 	db *sql.DB,
 	opt nidhi.StoreOptions,
-) (*nidhi.Store[v1.Test, nidhi.Sqlizer], error) {
-	return nidhi.NewStore[v1.Test, nidhi.Sqlizer](
+) (*nidhi.Store[v1.Test], error) {
+	return nidhi.NewStore(
 		ctx,
 		db,
 		"test_v1",
@@ -43,7 +49,7 @@ func NewTestStore(
 }
 
 type TestField interface {
-	Selector() string
+	nidhi.Field
 	testField()
 }
 type baseTestField struct{}

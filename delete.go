@@ -44,7 +44,7 @@ type DeleteManyResult struct {
 // Delete deletes a single record from the store using its id.
 //
 // By default all deletes are soft deletes. To hard delete, see `DeleteOptions`
-func (s *Store[T, Q]) Delete(ctx context.Context, id string, opts DeleteOptions) (*DeleteResult, error) {
+func (s *Store[T]) Delete(ctx context.Context, id string, opts DeleteOptions) (*DeleteResult, error) {
 	var (
 		sqlStr string
 		args   []any
@@ -78,7 +78,7 @@ func (s *Store[T, Q]) Delete(ctx context.Context, id string, opts DeleteOptions)
 	return &DeleteResult{}, nil
 }
 
-func (s *Store[T, Q]) DeleteMany(ctx context.Context, q Q, opts DeleteManyOptions) (*DeleteManyResult, error) {
+func (s *Store[T]) DeleteMany(ctx context.Context, q Sqlizer, opts DeleteManyOptions) (*DeleteManyResult, error) {
 	var (
 		sqlStr string
 		args   []any

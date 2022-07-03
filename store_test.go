@@ -86,8 +86,8 @@ func TestNewStore(t *testing.T) {
 	attest.NotZero(t, store)
 }
 
-func newStore(tb testing.TB, db *sql.DB, opts nidhi.StoreOptions) *nidhi.Store[resource, nidhi.Sqlizer] {
-	store, err := nidhi.NewStore[resource, nidhi.Sqlizer](
+func newStore(tb testing.TB, db *sql.DB, opts nidhi.StoreOptions) *nidhi.Store[resource] {
+	store, err := nidhi.NewStore(
 		context.Background(),
 		db,
 		schema,

@@ -25,7 +25,7 @@ type ReplaceResult struct{}
 // Replace replaces a document, matched using it's id, in the store.
 //
 // Returns a NotFound error, if the document doesn't exist or the revision doesn't exist.
-func (s *Store[T, Q]) Replace(ctx context.Context, doc *T, opts ReplaceOptions) (*ReplaceResult, error) {
+func (s *Store[T]) Replace(ctx context.Context, doc *T, opts ReplaceOptions) (*ReplaceResult, error) {
 	docJSON, err := getJson(doc)
 	if err != nil {
 		return nil, fmt.Errorf("nidhi: failed to marshal document of collection: %s, err: %w", s.table, err)

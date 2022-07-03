@@ -27,7 +27,7 @@ type CreateResult struct{}
 // Create creates a new document.
 //
 // See `CreateOptions` for replacing documents if already present.
-func (s *Store[T, Q]) Create(ctx context.Context, doc *T, opts CreateOptions) (*CreateResult, error) {
+func (s *Store[T]) Create(ctx context.Context, doc *T, opts CreateOptions) (*CreateResult, error) {
 	id := s.idFn(doc)
 	if id == "" {
 		return nil, fmt.Errorf("nidhi: id cannot be empty")

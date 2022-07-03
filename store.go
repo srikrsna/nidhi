@@ -44,7 +44,7 @@ type StoreOptions struct {
 }
 
 // Store is the collection of documents
-type Store[T any, Q Sqlizer] struct {
+type Store[T any] struct {
 	db *sql.DB
 
 	table  string
@@ -60,7 +60,7 @@ type Store[T any, Q Sqlizer] struct {
 //
 // Typically this is never directly called. It is called via a more concrete generated function.
 // See protoc-gen-nidhi.
-func NewStore[T any, Q Sqlizer](
+func NewStore[T any](
 	ctx context.Context,
 	db *sql.DB,
 	schema, table string,
@@ -68,14 +68,14 @@ func NewStore[T any, Q Sqlizer](
 	idFn IdFn[T],
 	setIdFn SetIdFn[T],
 	opts StoreOptions,
-) (*Store[T, Q], error) {
+) (*Store[T], error) {
 	if _, err := db.ExecContext(ctx, fmt.Sprintf(schemaTemplate, schema)); err != nil {
 		return nil, fmt.Errorf("nidhi: failed to create schema: %q, err: %w", schema, err)
 	}
 	if _, err := db.ExecContext(ctx, fmt.Sprintf(tableTemplate, schema, table)); err != nil {
 		return nil, fmt.Errorf("nidhi: failed to create table: \"%s.%s\", err: %w", schema, table, err)
 	}
-	return &Store[T, Q]{
+	return &Store[T]{
 		db:      db,
 		table:   schema + "." + table,
 		fields:  fields,

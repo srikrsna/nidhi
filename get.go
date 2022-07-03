@@ -90,7 +90,7 @@ type QueryResult[T any] struct {
 }
 
 // Get is used to get a document from the store.
-func (s *Store[T, Q]) Get(ctx context.Context, id string, opts GetOptions) (*GetResult[T], error) {
+func (s *Store[T]) Get(ctx context.Context, id string, opts GetOptions) (*GetResult[T], error) {
 	var selection any = ColDoc
 	if len(s.fields) > 0 && len(opts.ViewMask) > 0 {
 		selection = sq.Expr(ColDoc+" - ?::text[]", pg.Array(difference(s.fields, opts.ViewMask)))
@@ -129,7 +129,7 @@ func (s *Store[T, Q]) Get(ctx context.Context, id string, opts GetOptions) (*Get
 }
 
 // Query queries the store and returns all matching documents.
-func (s *Store[T, Q]) Query(ctx context.Context, q Q, opts QueryOptions) (*QueryResult[T], error) {
+func (s *Store[T]) Query(ctx context.Context, q Sqlizer, opts QueryOptions) (*QueryResult[T], error) {
 	selection := any(ColDoc)
 	if len(s.fields) > 0 && len(opts.ViewMask) > 0 {
 		selection = sq.Expr(ColDoc+" - ?::text[]", pg.Array(difference(s.fields, opts.ViewMask)))
