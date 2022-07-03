@@ -32,17 +32,17 @@ func (q *Query) Field(name string, f Cond) *Conj {
 	return (*Conj)(q)
 }
 
-func (q *Query) Paren(iq Sqlizer) *Query {
+func (q *Query) Paren(iq Sqlizer) *Conj {
 	query, args, err := iq.ToSql()
 	if err != nil {
 		q.err = err
 	}
-	q.buf.Grow(len(query) + 4)
-	q.buf.WriteString(" (")
+	q.buf.Grow(len(query) + 2)
+	q.buf.WriteString("(")
 	q.buf.WriteString(query)
-	q.buf.WriteString(") ")
+	q.buf.WriteString(")")
 	q.args = append(q.args, args...)
-	return q
+	return (*Conj)(q)
 }
 
 func (q *Query) Where(query string, args ...interface{}) *Conj {
@@ -52,19 +52,19 @@ func (q *Query) Where(query string, args ...interface{}) *Conj {
 }
 
 func (q *Query) Not() *Query {
-	q.buf.WriteString(" NOT ")
+	q.buf.WriteString("NOT ")
 	return q
 }
 
 type Conj Query
 
 func (q *Conj) And() *Query {
-	q.buf.WriteString(" AND")
+	q.buf.WriteString(" AND ")
 	return (*Query)(q)
 }
 
 func (q *Conj) Or() *Query {
-	q.buf.WriteString(" OR")
+	q.buf.WriteString(" OR ")
 	return (*Query)(q)
 }
 
@@ -83,5 +83,3 @@ func (q *Conj) ReplaceArgs(args []interface{}) (*Conj, error) {
 func (q *Conj) ToSql() (string, []interface{}, error) {
 	return q.buf.String(), q.args, q.err
 }
-
-

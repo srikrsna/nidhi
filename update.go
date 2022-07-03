@@ -36,7 +36,10 @@ func (s *Store[T, Q]) Replace(ctx context.Context, doc *T, opts ReplaceOptions) 
 		return nil, fmt.Errorf("nidhi: failed to marshal metadata of collection: %s, err: %w", s.table, err)
 	}
 	defer putJson(mdJSON)
-	stmt := s.updateStatement(ctx, docJSON.Buffer(), false, mdJSON.Buffer())
+	stmt := sq.Update(s.table).
+		Set(ColRev, sq.Expr(ColRev+" + 1 ")).
+		Set(ColMeta, sq.Expr(ColMeta+" || ? ", mdJSON.Buffer())).
+		Set(ColDoc, docJSON.Buffer())
 	if opts.Revision > 0 {
 		stmt = stmt.Where(sq.Eq{ColRev: opts.Revision})
 	}
@@ -49,16 +52,4 @@ func (s *Store[T, Q]) Replace(ctx context.Context, doc *T, opts ReplaceOptions) 
 		return nil, ErrNotFound
 	}
 	return &ReplaceResult{}, nil
-}
-
-func (s *Store[T, Q]) updateStatement(ctx context.Context, buf []byte, merge bool, m []byte) *sq.UpdateBuilder {
-	st := sq.Update(s.table).
-		Set(ColRev, sq.Expr(ColRev+" + 1 ")).
-		Set(ColMeta, sq.Expr(ColMeta+" || ? ", m))
-	if merge {
-		st = st.Set(ColDoc, sq.Expr(ColDoc+" || ? ", buf))
-	} else {
-		st = st.Set(ColDoc, buf)
-	}
-	return st
 }
