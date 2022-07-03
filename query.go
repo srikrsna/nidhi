@@ -13,26 +13,34 @@ import (
 // as passed to e.g. database/sql.Exec. It can also return an error.
 type Sqlizer = sq.Sqlizer
 
-type Query struct {
+// Field represents a field of a document.
+type Field interface {
+	// Selector returns the selector expression for this field.
+	// Eg: For a field named `title`
+	//		JSON_VALUE('$.title' RETURNING JSONB DEFAULT '{}' ON EMPTY)
+	Selector() string
+}
+
+type Query[F Field] struct {
 	err  error
 	buf  strings.Builder
 	args []any
 }
 
-func (q *Query) Reset() {
+func (q *Query[F]) Reset() {
 	q.buf.Reset()
 	q.args = q.args[:0]
 	q.err = nil
 }
 
-func (q *Query) Field(name string, f Cond) *Conj {
-	if err := f.AppendCond(name, &q.buf, &q.args); err != nil {
+func (q *Query[F]) Where(f F, c Cond) *Conj[F] {
+	if err := c.AppendCond(f.Selector(), &q.buf, &q.args); err != nil {
 		q.err = err
 	}
-	return (*Conj)(q)
+	return (*Conj[F])(q)
 }
 
-func (q *Query) Paren(iq Sqlizer) *Conj {
+func (q *Query[F]) Paren(iq *Conj[F]) *Conj[F] {
 	query, args, err := iq.ToSql()
 	if err != nil {
 		q.err = err
@@ -42,37 +50,31 @@ func (q *Query) Paren(iq Sqlizer) *Conj {
 	q.buf.WriteString(query)
 	q.buf.WriteString(")")
 	q.args = append(q.args, args...)
-	return (*Conj)(q)
+	return (*Conj[F])(q)
 }
 
-func (q *Query) Where(query string, args ...any) *Conj {
-	q.buf.WriteString(query)
-	q.args = append(q.args, args...)
-	return (*Conj)(q)
-}
-
-func (q *Query) Not() *Query {
+func (q *Query[F]) Not() *Query[F] {
 	q.buf.WriteString("NOT ")
 	return q
 }
 
-type Conj Query
+type Conj[F Field] Query[F]
 
-func (q *Conj) And() *Query {
+func (q *Conj[F]) And() *Query[F] {
 	q.buf.WriteString(" AND ")
-	return (*Query)(q)
+	return (*Query[F])(q)
 }
 
-func (q *Conj) Or() *Query {
+func (q *Conj[F]) Or() *Query[F] {
 	q.buf.WriteString(" OR ")
-	return (*Query)(q)
+	return (*Query[F])(q)
 }
 
-func (q *Conj) ReplaceArgs(args []any) (*Conj, error) {
+func (q *Conj[F]) ReplaceArgs(args []any) (*Conj[F], error) {
 	if len(args) != len(q.args) {
 		return nil, fmt.Errorf("nidhi: different number of args are passed")
 	}
-	res := &Conj{
+	res := &Conj[F]{
 		err:  q.err,
 		args: args,
 	}
@@ -80,6 +82,6 @@ func (q *Conj) ReplaceArgs(args []any) (*Conj, error) {
 	return res, nil
 }
 
-func (q *Conj) ToSql() (string, []any, error) {
+func (q *Conj[F]) ToSql() (string, []any, error) {
 	return q.buf.String(), q.args, q.err
 }

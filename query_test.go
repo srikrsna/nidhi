@@ -10,72 +10,64 @@ import (
 
 func TestQueryer(t *testing.T) {
 	t.Parallel()
-	t.Run("field", func(t *testing.T) {
+	t.Run("where", func(t *testing.T) {
 		t.Parallel()
-		q := &nidhi.Query{}
-		gotSql, gotArgs, err := q.Field("field", eqCond{}).ToSql()
+		q := &nidhi.Query[testField]{}
+		gotSql, gotArgs, err := q.Where(testField{}, eqCond).ToSql()
 		attest.Ok(t, err)
 		attest.Equal(t, gotSql, `field = ?`)
 		attest.Equal(t, gotArgs, []any{0})
 	})
 	t.Run("not", func(t *testing.T) {
 		t.Parallel()
-		q := &nidhi.Query{}
-		gotSql, gotArgs, err := q.Not().Field("field", eqCond{}).ToSql()
+		q := &nidhi.Query[testField]{}
+		gotSql, gotArgs, err := q.Not().Where(testField{}, eqCond).ToSql()
 		attest.Ok(t, err)
 		attest.Equal(t, gotSql, `NOT field = ?`)
 		attest.Equal(t, gotArgs, []any{0})
 	})
 	t.Run("paren", func(t *testing.T) {
 		t.Parallel()
-		q := &nidhi.Query{}
-		sq := &nidhi.Query{}
-		gotSql, gotArgs, err := q.Paren(sq.Field("field", eqCond{})).ToSql()
+		q := &nidhi.Query[testField]{}
+		sq := &nidhi.Query[testField]{}
+		gotSql, gotArgs, err := q.Paren(sq.Where(testField{}, eqCond)).ToSql()
 		attest.Ok(t, err)
 		attest.Equal(t, gotSql, `(field = ?)`)
 		attest.Equal(t, gotArgs, []any{0})
 	})
-	t.Run("where", func(t *testing.T) {
-		t.Parallel()
-		q := &nidhi.Query{}
-		gotSql, gotArgs, err := q.Where("field = ?", 0).ToSql()
-		attest.Ok(t, err)
-		attest.Equal(t, gotSql, `field = ?`)
-		attest.Equal(t, gotArgs, []any{0})
-	})
 	t.Run("and", func(t *testing.T) {
 		t.Parallel()
-		q := &nidhi.Query{}
-		gotSql, gotArgs, err := q.Where("field < ?", 1).And().Where("field > ?", 2).ToSql()
+		q := &nidhi.Query[testField]{}
+		gotSql, gotArgs, err := q.Where(testField{}, ltCond).And().Where(testField{}, gtCond).ToSql()
 		attest.Ok(t, err)
 		attest.Equal(t, gotSql, `field < ? AND field > ?`)
-		attest.Equal(t, gotArgs, []any{1, 2})
+		attest.Equal(t, gotArgs, []any{0, 0})
 	})
 	t.Run("or", func(t *testing.T) {
 		t.Parallel()
-		q := &nidhi.Query{}
-		gotSql, gotArgs, err := q.Where("field < ?", 1).Or().Where("field > ?", 2).ToSql()
+		q := &nidhi.Query[testField]{}
+		gotSql, gotArgs, err := q.Where(testField{}, ltCond).Or().Where(testField{}, gtCond).ToSql()
 		attest.Ok(t, err)
 		attest.Equal(t, gotSql, `field < ? OR field > ?`)
-		attest.Equal(t, gotArgs, []any{1, 2})
+		attest.Equal(t, gotArgs, []any{0, 0})
 	})
 	t.Run("reset", func(t *testing.T) {
 		t.Parallel()
-		q := &nidhi.Query{}
-		gotSql, gotArgs, err := q.Where("field = ?", 0).ToSql()
+		q := &nidhi.Query[testField]{}
+		gotSql, gotArgs, err := q.Where(testField{}, eqCond).ToSql()
 		attest.Ok(t, err)
 		attest.Equal(t, gotSql, `field = ?`)
 		attest.Equal(t, gotArgs, []any{0})
 		q.Reset()
-		gotSql, gotArgs, err = q.Where("field = ?", 0).ToSql()
+		gotSql, gotArgs, err = q.Where(testField{}, ltCond).ToSql()
 		attest.Ok(t, err)
-		attest.Equal(t, gotSql, `field = ?`)
+		attest.Equal(t, gotSql, `field < ?`)
 		attest.Equal(t, gotArgs, []any{0})
 	})
 	t.Run("replace", func(t *testing.T) {
 		t.Parallel()
-		q := &nidhi.Query{}
-		conj := q.Where("field = ?", 0)
+		q := &nidhi.Query[testField]{}
+		conj := q.Where(testField{}, eqCond)
 		gotSql, gotArgs, err := conj.ToSql()
 		attest.Ok(t, err)
 		attest.Equal(t, gotSql, `field = ?`)
@@ -94,13 +86,19 @@ func TestQueryer(t *testing.T) {
 }
 
 var (
-	_ nidhi.Cond = eqCond{}
+	eqCond nidhi.Cond = opCond("=")
+	gtCond nidhi.Cond = opCond(">")
+	ltCond nidhi.Cond = opCond("<")
 )
 
-type eqCond struct{}
+type opCond string
 
-func (eqCond) AppendCond(field string, w io.StringWriter, args *[]any) error {
-	w.WriteString(field + " = ?")
+func (c opCond) AppendCond(field string, w io.StringWriter, args *[]any) error {
+	w.WriteString(field + " " + string(c) + " ?")
 	*args = append(*args, 0)
 	return nil
 }
+
+type testField struct{}
+
+func (testField) Selector() string { return "field" }
