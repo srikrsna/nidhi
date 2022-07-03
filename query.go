@@ -16,7 +16,7 @@ type Sqlizer = sq.Sqlizer
 type Query struct {
 	err  error
 	buf  strings.Builder
-	args []interface{}
+	args []any
 }
 
 func (q *Query) Reset() {
@@ -45,7 +45,7 @@ func (q *Query) Paren(iq Sqlizer) *Conj {
 	return (*Conj)(q)
 }
 
-func (q *Query) Where(query string, args ...interface{}) *Conj {
+func (q *Query) Where(query string, args ...any) *Conj {
 	q.buf.WriteString(query)
 	q.args = append(q.args, args...)
 	return (*Conj)(q)
@@ -68,7 +68,7 @@ func (q *Conj) Or() *Query {
 	return (*Query)(q)
 }
 
-func (q *Conj) ReplaceArgs(args []interface{}) (*Conj, error) {
+func (q *Conj) ReplaceArgs(args []any) (*Conj, error) {
 	if len(args) != len(q.args) {
 		return nil, fmt.Errorf("nidhi: different number of args are passed")
 	}
@@ -80,6 +80,6 @@ func (q *Conj) ReplaceArgs(args []interface{}) (*Conj, error) {
 	return res, nil
 }
 
-func (q *Conj) ToSql() (string, []interface{}, error) {
+func (q *Conj) ToSql() (string, []any, error) {
 	return q.buf.String(), q.args, q.err
 }

@@ -21,7 +21,7 @@ var (
 type Cond interface {
 	// AppendCond appends a condition to a query.
 	// [field] is the selector on which the condition is applied on.
-	AppendCond(field string, w io.StringWriter, args *[]interface{}) error
+	AppendCond(field string, w io.StringWriter, args *[]any) error
 }
 
 // Ptr is a helper function to use along with various conds.
@@ -42,7 +42,7 @@ type StringCond struct {
 }
 
 // AppendCond implements [Cond] for [StringCond]
-func (s *StringCond) AppendCond(name string, sb io.StringWriter, args *[]interface{}) error {
+func (s *StringCond) AppendCond(name string, sb io.StringWriter, args *[]any) error {
 	if s.Eq != nil {
 		sb.WriteString(name)
 		sb.WriteString(" = ?")
@@ -70,7 +70,7 @@ type BoolCond struct {
 }
 
 // AppendCond implements [Cond] for [BoolCond]
-func (c *BoolCond) AppendCond(name string, sb io.StringWriter, args *[]interface{}) error {
+func (c *BoolCond) AppendCond(name string, sb io.StringWriter, args *[]any) error {
 	if c.Eq != nil {
 		sb.WriteString(name)
 		sb.WriteString(" = ?")
@@ -88,7 +88,7 @@ type OrderedCond[T constraints.Ordered | time.Time] struct {
 }
 
 // AppendCond implements [Cond] for [OrderedCond]
-func (c *OrderedCond[T]) AppendCond(name string, sb io.StringWriter, args *[]interface{}) error {
+func (c *OrderedCond[T]) AppendCond(name string, sb io.StringWriter, args *[]any) error {
 	first := true
 	wc := func(op string, v *T) {
 		if v == nil {

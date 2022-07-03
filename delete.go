@@ -47,7 +47,7 @@ type DeleteManyResult struct {
 func (s *Store[T, Q]) Delete(ctx context.Context, id string, opts DeleteOptions) (*DeleteResult, error) {
 	var (
 		sqlStr string
-		args   []interface{}
+		args   []any
 		err    error
 	)
 	if opts.Permanent {
