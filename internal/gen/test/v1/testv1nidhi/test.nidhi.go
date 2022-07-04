@@ -60,13 +60,15 @@ type testId struct {
 	baseTestField
 }
 
-func (testId) Selector() string { return `JSON_VALUE('$.id' RETURNING TEXT DEFAULT '' ON EMPTY)` }
+func (testId) Selector() string                              { return `JSON_VALUE('$.id' RETURNING TEXT DEFAULT '' ON EMPTY)` }
+func (f testId) Is(c *nidhi.StringCond) (testId, nidhi.Cond) { return f, c }
 
 type testTitle struct {
 	baseTestField
 }
 
-func (testTitle) Selector() string { return `JSON_VALUE('$.title' RETURNING TEXT DEFAULT '' ON EMPTY)` }
+func (testTitle) Selector() string                                 { return `JSON_VALUE('$.title' RETURNING TEXT DEFAULT '' ON EMPTY)` }
+func (f testTitle) Is(c *nidhi.StringCond) (testTitle, nidhi.Cond) { return f, c }
 
 type testSubTest struct {
 	baseTestField
@@ -77,6 +79,7 @@ type testSubTest struct {
 func (testSubTest) Selector() string {
 	return `JSON_VALUE('$.subTest' RETURNING JSONB DEFAULT '{}' ON EMPTY)`
 }
+func (f testSubTest) Is(c *nidhi.JsonCond) (testSubTest, nidhi.Cond) { return f, c }
 
 type testSubTestName struct {
 	baseTestField
@@ -85,6 +88,7 @@ type testSubTestName struct {
 func (testSubTestName) Selector() string {
 	return `JSON_VALUE('$.subTest.name' RETURNING TEXT DEFAULT '' ON EMPTY)`
 }
+func (f testSubTestName) Is(c *nidhi.StringCond) (testSubTestName, nidhi.Cond) { return f, c }
 
 type testSubTestInner struct {
 	baseTestField
@@ -94,6 +98,7 @@ type testSubTestInner struct {
 func (testSubTestInner) Selector() string {
 	return `JSON_VALUE('$.subTest.inner' RETURNING JSONB DEFAULT '{}' ON EMPTY)`
 }
+func (f testSubTestInner) Is(c *nidhi.JsonCond) (testSubTestInner, nidhi.Cond) { return f, c }
 
 type testSubTestInnerYes struct {
 	baseTestField
@@ -102,6 +107,7 @@ type testSubTestInnerYes struct {
 func (testSubTestInnerYes) Selector() string {
 	return `JSON_VALUE('$.subTest.inner.yes' RETURNING TEXT DEFAULT '' ON EMPTY)`
 }
+func (f testSubTestInnerYes) Is(c *nidhi.StringCond) (testSubTestInnerYes, nidhi.Cond) { return f, c }
 
 type testSubTests struct {
 	baseTestField
@@ -112,6 +118,7 @@ type testSubTests struct {
 func (testSubTests) Selector() string {
 	return `JSON_VALUE('$.subTests' RETURNING JSONB DEFAULT '{}' ON EMPTY)`
 }
+func (f testSubTests) Is(c *nidhi.JsonCond) (testSubTests, nidhi.Cond) { return f, c }
 
 type testSubTestsName struct {
 	baseTestField
@@ -120,6 +127,7 @@ type testSubTestsName struct {
 func (testSubTestsName) Selector() string {
 	return `JSON_VALUE('$.subTests[*].name' RETURNING TEXT[] DEFAULT '{}' ON EMPTY)`
 }
+func (f testSubTestsName) Is(c *nidhi.StringSliceCond) (testSubTestsName, nidhi.Cond) { return f, c }
 
 type testSubTestsInner struct {
 	baseTestField
@@ -129,6 +137,7 @@ type testSubTestsInner struct {
 func (testSubTestsInner) Selector() string {
 	return `JSON_VALUE('$.subTests[*].inner' RETURNING JSONB DEFAULT '{}' ON EMPTY)`
 }
+func (f testSubTestsInner) Is(c *nidhi.JsonCond) (testSubTestsInner, nidhi.Cond) { return f, c }
 
 type testSubTestsInnerYes struct {
 	baseTestField
@@ -136,4 +145,7 @@ type testSubTestsInnerYes struct {
 
 func (testSubTestsInnerYes) Selector() string {
 	return `JSON_VALUE('$.subTests[*].inner.yes' RETURNING TEXT[] DEFAULT '{}' ON EMPTY)`
+}
+func (f testSubTestsInnerYes) Is(c *nidhi.StringSliceCond) (testSubTestsInnerYes, nidhi.Cond) {
+	return f, c
 }

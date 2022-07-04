@@ -200,9 +200,9 @@ func genSelectors(g *protogen.GeneratedFile, m *protogen.Message, fieldEmbed, ty
 }
 
 func genSelectorFunc(g *protogen.GeneratedFile, field *protogen.Field, fieldType, prefix string, inSlice uint) {
-	dataType, defaultValue := getDbTypeAndDefault(field, inSlice)
+	dataType, cond, defaultValue := getDbTypeCondAndDefault(field, inSlice)
 	g.P("func (", fieldType, ") Selector() string { return `JSON_VALUE('", prefix+"."+field.Desc.JSONName(), "' RETURNING ", dataType, " DEFAULT ", defaultValue, " ON EMPTY)` }")
-	// func (f testId) Is(c *nidhi.StringCond) (testId, nidhi.Cond) { return f, c }
+	g.P("func (f ", fieldType, ") Is(c *", nidhiPkg.Ident(cond), ") (", fieldType, ", ", nidhiPkg.Ident("Cond"), ") { return f, c }")
 }
 
 func genFieldInterface(g *protogen.GeneratedFile, m *protogen.Message) string {
@@ -220,7 +220,7 @@ func lowerMessageName(m *protogen.Message) string {
 	return strings.ToLower(m.GoIdent.GoName[:1]) + m.GoIdent.GoName[1:]
 }
 
-func getDbTypeAndDefault(field *protogen.Field, inSlice uint) (typ string, def string) {
+func getDbTypeCondAndDefault(field *protogen.Field, inSlice uint) (typ string, cond string, def string) {
 	defer func() {
 		if field.Desc.HasOptionalKeyword() {
 			def = "NULL"
@@ -230,83 +230,84 @@ func getDbTypeAndDefault(field *protogen.Field, inSlice uint) (typ string, def s
 			sliceCount++
 		}
 		if sliceCount > 0 && typ != "JSONB" {
+			cond = strings.ReplaceAll(cond, "Cond", "SliceCond")
 			typ += strings.Repeat("[]", int(sliceCount))
 			def = "'{}'"
 		}
 	}()
 	switch {
 	case field.Desc.IsMap():
-		return "JSONB", "'{}'"
+		return "JSONB", "JsonCond", "'{}'"
 	case field.Message != nil:
 		if wktSet[field.Message.Desc.FullName()] {
-			return lkpWktDbTyp(field.Message.Desc.FullName())
+			return lkpWktTyp(field.Message.Desc.FullName())
 		} else {
-			return "JSONB", "'{}'"
+			return "JSONB", "JsonCond", "'{}'"
 		}
 	case field.Enum != nil:
 		vd := field.Enum.Desc.Values().ByNumber(0)
 		if vd == nil {
 			log.Println("Enum doesn't have a ZERO based default value")
 		}
-		return "TEXT", "'" + string(vd.Name()) + "'"
+		return "TEXT", "StringCond", "'" + string(vd.Name()) + "'"
 	default:
 		// Only scalar fields
-		return lkpScalarDbTyp(field.Desc.Kind())
+		return lkpScalarTyp(field.Desc.Kind())
 	}
 }
 
-func lkpScalarDbTyp(kind protoreflect.Kind) (string, string) {
+func lkpScalarTyp(kind protoreflect.Kind) (string, string, string) {
 	switch kind {
 	case protoreflect.StringKind, protoreflect.BytesKind:
-		return "TEXT", "''"
+		return "TEXT", "StringCond", "''"
 	case protoreflect.BoolKind:
-		return "BOOLEAN", "FALSE"
+		return "BOOLEAN", "BoolCond", "FALSE"
 	case protoreflect.DoubleKind:
-		return "DOUBLE PRECISION", "0"
+		return "DOUBLE PRECISION", "FloatCond", "0"
 	case protoreflect.FloatKind:
-		return "REAL", "0"
+		return "REAL", "FloatCond", "0"
 	case protoreflect.Int32Kind, protoreflect.Sint32Kind, protoreflect.Sfixed32Kind, protoreflect.Uint32Kind, protoreflect.Fixed32Kind:
-		return "INTEGER", "0"
+		return "INTEGER", "IntCond", "0"
 	case protoreflect.Int64Kind, protoreflect.Sint64Kind, protoreflect.Sfixed64Kind, protoreflect.Uint64Kind, protoreflect.Fixed64Kind:
-		return "BIGINT", "0"
+		return "BIGINT", "IntCond", "0"
 	default:
-		panic("there seems to be buf")
+		panic("this is a bug")
 
 	}
 }
 
-func lkpWktDbTyp(name protoreflect.FullName) (string, string) {
+func lkpWktTyp(name protoreflect.FullName) (string, string, string) {
 	switch name {
 	case (&structpb.Struct{}).ProtoReflect().Descriptor().FullName(),
 		(&structpb.ListValue{}).ProtoReflect().Descriptor().FullName(),
 		(&structpb.Value{}).ProtoReflect().Descriptor().FullName(),
 		(&anypb.Any{}).ProtoReflect().Descriptor().FullName(),
 		(new(structpb.NullValue)).Descriptor().FullName():
-		return "JSONB", "NULL"
+		return "JSONB", "JsonCond", "NULL"
 	case (&fieldmaskpb.FieldMask{}).ProtoReflect().Descriptor().FullName():
-		return "TEXT", "''"
+		return "TEXT", "StringCond", "''"
 	case (&timestamppb.Timestamp{}).ProtoReflect().Descriptor().FullName():
-		return "TIMESTAMP", "'1970-01-01 00:00:00'"
+		return "TIMESTAMP", "TimeCond", "'1970-01-01 00:00:00'"
 	case (&durationpb.Duration{}).ProtoReflect().Descriptor().FullName():
-		return "SECOND P 6 ", "'0s'"
+		return "SECOND P 6 ", "UNKNOWN", "'0s'"
 	case (&emptypb.Empty{}).ProtoReflect().Descriptor().FullName():
-		return "JSONB", "'{}'"
+		return "JSONB", "JsonCond", "'{}'"
 	case (&wrapperspb.BoolValue{}).ProtoReflect().Descriptor().FullName():
-		return "BOOLEAN", "FALSE"
+		return "BOOLEAN", "BoolCond", "FALSE"
 	case (&wrapperspb.StringValue{}).ProtoReflect().Descriptor().FullName(), (&wrapperspb.BytesValue{}).ProtoReflect().Descriptor().FullName():
-		return "TEXT", "''"
+		return "TEXT", "StringCond", "''"
 	case (&wrapperspb.Int32Value{}).ProtoReflect().Descriptor().FullName():
-		return "INTEGER", "0"
+		return "INTEGER", "IntCond", "0"
 	case (&wrapperspb.Int64Value{}).ProtoReflect().Descriptor().FullName():
-		return "BIGINT", "0"
+		return "BIGINT", "IntCond", "0"
 	case (&wrapperspb.UInt32Value{}).ProtoReflect().Descriptor().FullName():
-		return "INTEGER", "0"
+		return "INTEGER", "IntCond", "0"
 	case (&wrapperspb.UInt64Value{}).ProtoReflect().Descriptor().FullName():
-		return "BIGINT", "0"
+		return "BIGINT", "IntCond", "0"
 	case (&wrapperspb.FloatValue{}).ProtoReflect().Descriptor().FullName():
-		return "REAL", "0"
+		return "REAL", "FloatCond", "0"
 	case (&wrapperspb.DoubleValue{}).ProtoReflect().Descriptor().FullName():
-		return "DOUBLE PRECISION", "0"
+		return "DOUBLE PRECISION", "FloatCond", "0"
 	default:
 		panic("unknown wkt")
 	}

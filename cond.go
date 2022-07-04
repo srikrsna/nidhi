@@ -115,14 +115,14 @@ func (c *OrderedCond[T]) AppendCond(name string, sb io.StringWriter, args *[]any
 	return nil
 }
 
-// FloatCond is a [Cond] for [float64].
-type FloatCond = OrderedCond[float64]
-
-// IntCond is a [Cond] for [int64].
-type IntCond = OrderedCond[int64]
-
-// TimeCond is a [Cond] for [time.Time].
-type TimeCond = OrderedCond[time.Time]
+type (
+	// FloatCond is a [Cond] for [float64].
+	FloatCond = OrderedCond[float64]
+	// IntCond is a [Cond] for [int64].
+	IntCond = OrderedCond[int64]
+	// TimeCond is a [Cond] for [time.Time].
+	TimeCond = OrderedCond[time.Time]
+)
 
 // TimeCond is a [Cond] for slice types.
 type SliceCond[E any, S ~[]E] struct {
@@ -161,13 +161,30 @@ func (s *SliceCond[E, S]) AppendCond(name string, sb io.StringWriter, args *[]an
 	return nil
 }
 
-// type MarshalerQuery struct {
-// 	Any any
-// }
+type (
+	// StringSliceCond is convenient alias
+	StringSliceCond = SliceCond[string, []string]
+	// IntSliceCond is convenient alias
+	IntSliceCond = SliceCond[string, []string]
+	// BoolSliceCond is convenient alias
+	BoolSliceCond = SliceCond[string, []string]
+	// FloatSliceCond is convenient alias
+	FloatSliceCond = SliceCond[string, []string]
+	// TimeSliceCond is convenient alias
+	TimeSliceCond = SliceCond[string, []string]
+)
 
-// func (f MarshalerQuery) AppendCond(name string, w io.StringWriter, args *[]any) error {
-// 	w.WriteString(name)
-// 	w.WriteString(" @> ?")
-// 	*args = append(*args, JSONB(f.Any))
-// 	return nil
-// }
+type JsonCond struct {
+	Any any
+}
+
+func (f JsonCond) AppendCond(name string, w io.StringWriter, args *[]any) error {
+	w.WriteString(name)
+	w.WriteString(" @> ?")
+	buf, err := getJson(f.Any)
+	if err != nil {
+		return err
+	}
+	*args = append(*args, buf.Buffer())
+	return nil
+}
