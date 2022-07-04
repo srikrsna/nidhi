@@ -4,6 +4,8 @@ package nidhi;
 
 import "google/protobuf/descriptor.proto";
 
+option go_package = "github.com/srikrsna/nidhi/gen/nidhi";
+
 extend google.protobuf.FieldOptions {
   // GenerateStore tells the plugin to generate a store for this Message
   // The id will the field this option is set on
