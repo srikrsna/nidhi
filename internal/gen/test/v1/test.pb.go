@@ -7,7 +7,7 @@
 package testv1
 
 import (
-	_ "github.com/srikrsna/nidhi/internal/gen/nidhi"
+	_ "github.com/srikrsna/nidhi/gen/nidhi"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
