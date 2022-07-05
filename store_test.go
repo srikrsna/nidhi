@@ -115,7 +115,7 @@ func newDB(tb testing.TB) *sql.DB {
 	pw, _ := pgURL.User.Password()
 	runOptions := &dockertest.RunOptions{
 		Repository: "postgres",
-		Tag:        "15beta1-alpine",
+		Tag:        "15beta2-alpine",
 		Env: []string{
 			"POSTGRES_USER=" + pgURL.User.Username(),
 			"POSTGRES_PASSWORD=" + pw,
