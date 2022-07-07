@@ -69,7 +69,7 @@ func (u *TestUpdates) WriteJSON(w *_go.Stream) {
 			if v, ok := any(v).(interface{ WriteJSON(*_go.Stream) }); ok {
 				v.WriteJSON(w)
 			} else {
-				data, err := protojson.Marshal(*u.SubTest)
+				data, err := protojson.Marshal(v)
 				if err != nil {
 					w.Error = err
 					return

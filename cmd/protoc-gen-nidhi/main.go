@@ -203,16 +203,25 @@ func genUpdateFieldMarshaler(g *protogen.GeneratedFile, fd protoreflect.FieldDes
 		g.P("}")
 		g.P("w.WriteObjectEnd()")
 	case fd.Message() != nil:
-		g.P("if v, ok := any(", name, ").(interface{ WriteJSON(*", jsoniterPkg.Ident("Stream"), ") }); ok {")
-		g.P("v.WriteJSON(w)")
-		g.P("} else {")
-		g.P("data, err := ", protojsonPkg.Ident("Marshal"), "(*u.SubTest)")
-		g.P("if err != nil {")
-		g.P("w.Error = err")
-		g.P("return")
-		g.P("}")
-		g.P("w.WriteVal(", jsonPkg.Ident("RawMessage"), "(data))")
-		g.P("}")
+		if wktSet[fd.Message().FullName()] {
+			g.P("data, err := ", protojsonPkg.Ident("Marshal"), "(", name, ")")
+			g.P("if err != nil {")
+			g.P("w.Error = err")
+			g.P("return")
+			g.P("}")
+			g.P("w.WriteVal(", jsonPkg.Ident("RawMessage"), "(data))")
+		} else {
+			g.P("if v, ok := any(", name, ").(interface{ WriteJSON(*", jsoniterPkg.Ident("Stream"), ") }); ok {")
+			g.P("v.WriteJSON(w)")
+			g.P("} else {")
+			g.P("data, err := ", protojsonPkg.Ident("Marshal"), "(", name, ")")
+			g.P("if err != nil {")
+			g.P("w.Error = err")
+			g.P("return")
+			g.P("}")
+			g.P("w.WriteVal(", jsonPkg.Ident("RawMessage"), "(data))")
+			g.P("}")
+		}
 	case fd.Enum() != nil:
 		g.P("w.WriteString((", name, ").String())")
 	case fd.Kind() == protoreflect.BytesKind:
