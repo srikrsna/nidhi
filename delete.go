@@ -100,7 +100,7 @@ func (s *Store[T]) DeleteMany(ctx context.Context, q Sqlizer, opts DeleteManyOpt
 		}
 		defer putJson(mdJSON)
 		st := sq.Update(s.table).Set(ColDel, true).Set(ColMeta, merge(ColMeta, mdJSON.Buffer()))
-		if any(q) != nil {
+		if q != nil {
 			st = st.Where(q)
 		}
 		st = st.Where(notDeleted)
