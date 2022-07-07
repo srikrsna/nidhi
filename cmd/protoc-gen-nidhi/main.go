@@ -211,8 +211,8 @@ func genUpdateFieldMarshaler(g *protogen.GeneratedFile, fd protoreflect.FieldDes
 			g.P("}")
 			g.P("w.WriteVal(", jsonPkg.Ident("RawMessage"), "(data))")
 		} else {
-			g.P("if v, ok := any(", name, ").(interface{ WriteJSON(*", jsoniterPkg.Ident("Stream"), ") }); ok {")
-			g.P("v.WriteJSON(w)")
+			g.P("if m, ok := any(", name, ").(interface{ WriteJSON(*", jsoniterPkg.Ident("Stream"), ") }); ok {")
+			g.P("m.WriteJSON(w)")
 			g.P("} else {")
 			g.P("data, err := ", protojsonPkg.Ident("Marshal"), "(", name, ")")
 			g.P("if err != nil {")

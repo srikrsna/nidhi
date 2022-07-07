@@ -43,8 +43,8 @@ func (u *TestUpdates) WriteJSON(w *_go.Stream) {
 			w.WriteMore()
 		}
 		w.WriteObjectField("subTest")
-		if v, ok := any(*u.SubTest).(interface{ WriteJSON(*_go.Stream) }); ok {
-			v.WriteJSON(w)
+		if m, ok := any(*u.SubTest).(interface{ WriteJSON(*_go.Stream) }); ok {
+			m.WriteJSON(w)
 		} else {
 			data, err := protojson.Marshal(*u.SubTest)
 			if err != nil {
@@ -66,8 +66,8 @@ func (u *TestUpdates) WriteJSON(w *_go.Stream) {
 			if !ap {
 				w.WriteMore()
 			}
-			if v, ok := any(v).(interface{ WriteJSON(*_go.Stream) }); ok {
-				v.WriteJSON(w)
+			if m, ok := any(v).(interface{ WriteJSON(*_go.Stream) }); ok {
+				m.WriteJSON(w)
 			} else {
 				data, err := protojson.Marshal(v)
 				if err != nil {
