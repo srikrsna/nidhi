@@ -27,6 +27,10 @@ const (
 	nidhiPkg                   = protogen.GoImportPath("github.com/srikrsna/nidhi")
 	contextPkg                 = protogen.GoImportPath("context")
 	sqlPkg                     = protogen.GoImportPath("database/sql")
+	jsoniterPkg                = protogen.GoImportPath("github.com/json-iterator/go")
+	protojsonPkg               = protogen.GoImportPath("google.golang.org/protobuf/encoding/protojson")
+	base64Pkg                  = protogen.GoImportPath("encoding/base64")
+	jsonPkg                    = protogen.GoImportPath("encoding/json")
 )
 
 var (
@@ -135,6 +139,88 @@ func genUpdates(g *protogen.GeneratedFile, message *protogen.Message, idField *p
 		g.P(append([]any{field.GoName, " "}, append(lkpFieldType(field, plugin), " `json:\"", field.Desc.JSONName(), ",omitempty\"`")...)...)
 	}
 	g.P("}")
+	g.P("")
+	g.P("func (u *", name, "Updates) WriteJSON(w *", jsoniterPkg.Ident("Stream"), ") {")
+	g.P("if u == nil {")
+	g.P("w.WriteEmptyObject()")
+	g.P("return")
+	g.P("}")
+	g.P("first := true")
+	g.P("w.WriteObjectStart()")
+	for _, field := range message.Fields {
+		if field == idField {
+			continue
+		}
+		g.P("if u.", field.GoName, " != nil {")
+		g.P("if !first {")
+		g.P("w.WriteMore()")
+		g.P("}")
+		g.P(`w.WriteObjectField("`, field.Desc.JSONName(), `")`)
+		genUpdateFieldMarshaler(g, field.Desc, "*u."+field.GoName, false)
+		g.P("first = false")
+		g.P("}")
+	}
+	g.P("w.WriteObjectEnd()")
+	g.P("}")
+}
+
+func genUpdateFieldMarshaler(g *protogen.GeneratedFile, fd protoreflect.FieldDescriptor, name string, inList bool) {
+	switch {
+	case fd.IsList() && !inList:
+		g.P("w.WriteArrayStart()")
+		g.P("ap := false")
+		g.P("for _, v := range ", name, " {")
+		g.P("if !ap {")
+		g.P("w.WriteMore()")
+		g.P("}")
+		genUpdateFieldMarshaler(g, fd, "v", true)
+		g.P("ap = false")
+		g.P("}")
+		g.P("w.WriteArrayEnd()")
+	case fd.IsMap():
+		g.P("w.WriteObjectStart()")
+		g.P("mp := false")
+		g.P("for k, v := range ", name, " {")
+		g.P("if !mp {")
+		g.P("w.WriteMore()")
+		g.P("}")
+		switch fd.MapKey().Kind() {
+		case protoreflect.BoolKind:
+			g.P("w.WriteObjectField(strconv.FormatBool(k))")
+		case protoreflect.StringKind:
+			g.P("w.WriteObjectField(k)")
+		case protoreflect.Int32Kind, protoreflect.Sint32Kind, protoreflect.Sfixed32Kind:
+			g.P("w.WriteObjectField(strconv.FormatInt(int64(k), 10))")
+		case protoreflect.Int64Kind, protoreflect.Sint64Kind, protoreflect.Sfixed64Kind:
+			g.P("w.WriteObjectField(strconv.FormatInt(k, 10))")
+		case protoreflect.Uint32Kind, protoreflect.Fixed32Kind:
+			g.P("w.WriteObjectField(strconv.FormatUint(uint64(k), 10))")
+		case protoreflect.Uint64Kind, protoreflect.Fixed64Kind:
+			g.P("w.WriteObjectField(strconv.FormatUint(k, 10))")
+		}
+		genUpdateFieldMarshaler(g, fd.MapValue(), "v", false)
+		g.P("mp = false")
+		g.P("}")
+		g.P("w.WriteObjectEnd()")
+	case fd.Message() != nil:
+		g.P("if v, ok := any(", name, ").(interface{ WriteJSON(*", jsoniterPkg.Ident("Stream"), ") }); ok {")
+		g.P("v.WriteJSON(w)")
+		g.P("} else {")
+		g.P("data, err := ", protojsonPkg.Ident("Marshal"), "(*u.SubTest)")
+		g.P("if err != nil {")
+		g.P("w.Error = err")
+		g.P("return")
+		g.P("}")
+		g.P("w.WriteVal(", jsonPkg.Ident("RawMessage"), "(data))")
+		g.P("}")
+	case fd.Enum() != nil:
+		g.P("w.WriteString((", name, ").String())")
+	case fd.Kind() == protoreflect.BytesKind:
+		g.P("w.WriteString(", base64Pkg.Ident("StdEncoding.EncodeToString"), "(", name, "))")
+	default:
+		g.P("w.Write", strings.Title(lkpScalarFieldTyp(fd.Kind())), "(", name, ")")
+		// Only scalar fields
+	}
 }
 
 func genQuery(g *protogen.GeneratedFile, message *protogen.Message) {
@@ -350,7 +436,7 @@ func lkpFieldType(field *protogen.Field, plugin *protogen.Plugin) (fn []any) {
 	}
 }
 
-func lkpScalarFieldTyp(kind protoreflect.Kind) any {
+func lkpScalarFieldTyp(kind protoreflect.Kind) string {
 	switch kind {
 	case protoreflect.StringKind:
 		return "string"

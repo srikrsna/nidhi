@@ -7,8 +7,11 @@ package testv1nidhi
 import (
 	context "context"
 	sql "database/sql"
+	json "encoding/json"
+	_go "github.com/json-iterator/go"
 	nidhi "github.com/srikrsna/nidhi"
 	v1 "github.com/srikrsna/nidhi/internal/gen/test/v1"
+	protojson "google.golang.org/protobuf/encoding/protojson"
 )
 
 // TestUpdates is an updates type that can be passed to
@@ -18,6 +21,85 @@ type TestUpdates struct {
 	SubTest  **v1.SubTest       `json:"subTest,omitempty"`
 	SubTests *[]*v1.SubTest     `json:"subTests,omitempty"`
 	M        *map[string]string `json:"m,omitempty"`
+}
+
+func (u *TestUpdates) WriteJSON(w *_go.Stream) {
+	if u == nil {
+		w.WriteEmptyObject()
+		return
+	}
+	first := true
+	w.WriteObjectStart()
+	if u.Title != nil {
+		if !first {
+			w.WriteMore()
+		}
+		w.WriteObjectField("title")
+		w.WriteString(*u.Title)
+		first = false
+	}
+	if u.SubTest != nil {
+		if !first {
+			w.WriteMore()
+		}
+		w.WriteObjectField("subTest")
+		if v, ok := any(*u.SubTest).(interface{ WriteJSON(*_go.Stream) }); ok {
+			v.WriteJSON(w)
+		} else {
+			data, err := protojson.Marshal(*u.SubTest)
+			if err != nil {
+				w.Error = err
+				return
+			}
+			w.WriteVal(json.RawMessage(data))
+		}
+		first = false
+	}
+	if u.SubTests != nil {
+		if !first {
+			w.WriteMore()
+		}
+		w.WriteObjectField("subTests")
+		w.WriteArrayStart()
+		ap := false
+		for _, v := range *u.SubTests {
+			if !ap {
+				w.WriteMore()
+			}
+			if v, ok := any(v).(interface{ WriteJSON(*_go.Stream) }); ok {
+				v.WriteJSON(w)
+			} else {
+				data, err := protojson.Marshal(*u.SubTest)
+				if err != nil {
+					w.Error = err
+					return
+				}
+				w.WriteVal(json.RawMessage(data))
+			}
+			ap = false
+		}
+		w.WriteArrayEnd()
+		first = false
+	}
+	if u.M != nil {
+		if !first {
+			w.WriteMore()
+		}
+		w.WriteObjectField("m")
+		w.WriteObjectStart()
+		mp := false
+		for k, v := range *u.M {
+			if !mp {
+				w.WriteMore()
+			}
+			w.WriteObjectField(k)
+			w.WriteString(v)
+			mp = false
+		}
+		w.WriteObjectEnd()
+		first = false
+	}
+	w.WriteObjectEnd()
 }
 
 // TestSchema is the set of path selectors for the Test type.
