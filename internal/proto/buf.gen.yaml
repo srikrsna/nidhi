@@ -2,7 +2,9 @@ version: v1
 managed:
   enabled: true
   go_package_prefix:
-    default: github.com/srikrsna/nidhi/internal/gen      
+    default: github.com/srikrsna/nidhi/internal/gen   
+    except:
+      - buf.build/srikrsna/nidhi
 plugins:
   - name: go
     opt: paths=source_relative
