@@ -43,6 +43,14 @@ type resource struct {
 	CanDrive    bool      `json:"canDrive,omitempty"`
 }
 
+type resourceUpdates struct {
+	Id          *string    `json:"id,omitempty"`
+	Title       *string    `json:"title,omitempty"`
+	DateOfBirth *time.Time `json:"dateOfBirth,omitempty"`
+	Age         *int       `json:"age,omitempty"`
+	CanDrive    *bool      `json:"canDrive,omitempty"`
+}
+
 func TestNewStore(t *testing.T) {
 	t.Parallel()
 	db := newDB(t)
