@@ -97,7 +97,7 @@ func gen(plugin *protogen.Plugin, file *protogen.File) {
 	)
 	genHeader(genFile, file)
 	for _, message := range messagesToGen {
-		genMessage(genFile, message.Message, message.Field)
+		genMessage(genFile, message.Message, message.Field, plugin)
 	}
 }
 
@@ -114,12 +114,27 @@ func genHeader(g *protogen.GeneratedFile, file *protogen.File) {
 	g.P()
 }
 
-func genMessage(g *protogen.GeneratedFile, message *protogen.Message, idField *protogen.Field) {
+func genMessage(g *protogen.GeneratedFile, message *protogen.Message, idField *protogen.Field, plugin *protogen.Plugin) {
+	genUpdates(g, message, idField, plugin)
 	genSchema(g, message, idField)
 	genQuery(g, message)
 	genConj(g, message)
 	genNewStore(g, message, idField)
 	genFields(g, message, idField)
+}
+
+func genUpdates(g *protogen.GeneratedFile, message *protogen.Message, idField *protogen.Field, plugin *protogen.Plugin) {
+	name := message.GoIdent.GoName
+	g.P("// ", name, "Updates is an updates type that can be passed to")
+	g.P("// [*nidhi.Store.Update] and [*nidhi.Store.UpdateMany]")
+	g.P("type ", name, "Updates struct {")
+	for _, field := range message.Fields {
+		if field == idField {
+			continue
+		}
+		g.P(append([]any{field.GoName, " "}, append(lkpFieldType(field, plugin), " `json:\"", field.Desc.JSONName(), ",omitempty\"`")...)...)
+	}
+	g.P("}")
 }
 
 func genQuery(g *protogen.GeneratedFile, message *protogen.Message) {
@@ -311,4 +326,73 @@ func lkpWktTyp(name protoreflect.FullName) (string, string, string) {
 	default:
 		panic("unknown wkt")
 	}
+}
+
+func lkpFieldType(field *protogen.Field, plugin *protogen.Plugin) (fn []any) {
+	defer func() {
+		if field.Desc.HasOptionalKeyword() {
+			fn = append([]any{"*"}, fn...)
+		}
+		if field.Desc.IsList() {
+			fn[0] = "*[]"
+		}
+	}()
+	switch {
+	case field.Desc.IsMap():
+		return append([]any{"*", "map[", lkpScalarFieldTyp(field.Desc.MapKey().Kind()), "]"}, lkpMapValueImport(field.Desc.MapValue(), plugin)...)
+	case field.Message != nil:
+		return []any{"*", "*", field.Message.GoIdent}
+	case field.Enum != nil:
+		return []any{"*", field.Enum.GoIdent}
+	default:
+		// Only scalar fields
+		return []any{"*", lkpScalarFieldTyp(field.Desc.Kind())}
+	}
+}
+
+func lkpScalarFieldTyp(kind protoreflect.Kind) any {
+	switch kind {
+	case protoreflect.StringKind:
+		return "string"
+	case protoreflect.BytesKind:
+		return "[]byte"
+	case protoreflect.BoolKind:
+		return "bool"
+	case protoreflect.DoubleKind:
+		return "float64"
+	case protoreflect.FloatKind:
+		return "float32"
+	case protoreflect.Int32Kind, protoreflect.Sint32Kind, protoreflect.Sfixed32Kind:
+		return "int32"
+	case protoreflect.Int64Kind, protoreflect.Sint64Kind, protoreflect.Sfixed64Kind:
+		return "int64"
+	case protoreflect.Uint32Kind, protoreflect.Fixed32Kind:
+		return "uint32"
+	case protoreflect.Uint64Kind, protoreflect.Fixed64Kind:
+		return "uint64"
+	default:
+		// This should never happen
+		return "Unknown"
+	}
+}
+
+func lkpMapValueImport(fd protoreflect.FieldDescriptor, plugin *protogen.Plugin) []any {
+	file := plugin.FilesByPath[fd.ParentFile().Path()]
+	switch {
+	case fd.Message() != nil:
+		for _, msg := range file.Messages {
+			if msg.Desc.FullName() == fd.Message().FullName() {
+				return []any{"*", msg.GoIdent}
+			}
+		}
+	case fd.Enum() != nil:
+		for _, enum := range file.Enums {
+			if enum.Desc.FullName() == fd.Enum().FullName() {
+				return []any{enum.GoIdent}
+			}
+		}
+	default:
+		return []any{lkpScalarFieldTyp(fd.Kind())}
+	}
+	panic("should not happen")
 }

@@ -11,12 +11,22 @@ import (
 	v1 "github.com/srikrsna/nidhi/internal/gen/test/v1"
 )
 
+// TestUpdates is an updates type that can be passed to
+// [*nidhi.Store.Update] and [*nidhi.Store.UpdateMany]
+type TestUpdates struct {
+	Title    *string            `json:"title,omitempty"`
+	SubTest  **v1.SubTest       `json:"subTest,omitempty"`
+	SubTests *[]*v1.SubTest     `json:"subTests,omitempty"`
+	M        *map[string]string `json:"m,omitempty"`
+}
+
 // TestSchema is the set of path selectors for the Test type.
 var TestSchema = struct {
 	Id       testId
 	Title    testTitle
 	SubTest  testSubTest
 	SubTests testSubTests
+	M        testM
 }{}
 
 // TestQuery is an alias for nidhi.Query[TestField]
@@ -41,6 +51,7 @@ func NewTestStore(
 			"title",
 			"subTest",
 			"subTests",
+			"m",
 		},
 		func(x *v1.Test) string { return x.Id },
 		func(x *v1.Test, id string) { x.Id = id },
@@ -149,3 +160,28 @@ func (testSubTestsInnerYes) Selector() string {
 func (f testSubTestsInnerYes) Is(c *nidhi.StringSliceCond) (testSubTestsInnerYes, nidhi.Cond) {
 	return f, c
 }
+
+type testM struct {
+	baseTestField
+	Key   testMKey
+	Value testMValue
+}
+
+func (testM) Selector() string                           { return `JSON_VALUE('$.m' RETURNING JSONB DEFAULT '{}' ON EMPTY)` }
+func (f testM) Is(c *nidhi.JsonCond) (testM, nidhi.Cond) { return f, c }
+
+type testMKey struct {
+	baseTestField
+}
+
+func (testMKey) Selector() string                                { return `JSON_VALUE('$.m.key' RETURNING TEXT DEFAULT '' ON EMPTY)` }
+func (f testMKey) Is(c *nidhi.StringCond) (testMKey, nidhi.Cond) { return f, c }
+
+type testMValue struct {
+	baseTestField
+}
+
+func (testMValue) Selector() string {
+	return `JSON_VALUE('$.m.value' RETURNING TEXT DEFAULT '' ON EMPTY)`
+}
+func (f testMValue) Is(c *nidhi.StringCond) (testMValue, nidhi.Cond) { return f, c }

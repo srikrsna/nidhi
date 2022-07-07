@@ -9,6 +9,7 @@ message Test {
   string title = 2;
   SubTest sub_test = 3;
   repeated SubTest sub_tests = 4;
+  map<string, string> m = 5;
 }
 
 message SubTest {
