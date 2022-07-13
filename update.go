@@ -7,6 +7,15 @@ import (
 	sq "github.com/elgris/sqrl"
 )
 
+// OnReplaceHook is the signature for the [Hooks.OnReplace] hook.
+type OnReplaceHook func(*HookContext, any, *ReplaceOptions)
+
+// OnUpdateHook is the signature for the [Hooks.OnUpdate] hook.
+type OnUpdateHook func(*HookContext, string, any, *UpdateOptions)
+
+// OnUpdateManyHook is the signature for the [Hooks.OnUpdateMany] hook.
+type OnUpdateManyHook func(*HookContext, any, Sqlizer, *UpdateManyOptions)
+
 // ReplaceOptions are options for `Replace` operation.
 type ReplaceOptions struct {
 	// Metadata is the metadata of the document.
@@ -54,6 +63,12 @@ type UpdateManyResult struct {
 //
 // Returns a NotFound error, if the document doesn't exist or the revision doesn't exist.
 func (s *Store[T]) Replace(ctx context.Context, doc *T, opts ReplaceOptions) (*ReplaceResult, error) {
+	hookCtx := NewHookContext(ctx, s)
+	for _, h := range s.hooks {
+		if h.OnReplace != nil {
+			h.OnReplace(hookCtx, doc, &opts)
+		}
+	}
 	rc, err := s.update(ctx, doc, sq.Eq{ColId: s.idFn(doc)}, false, opts.Metadata, opts.Revision)
 	if err != nil {
 		return nil, err
@@ -68,6 +83,12 @@ func (s *Store[T]) Replace(ctx context.Context, doc *T, opts ReplaceOptions) (*R
 //
 // Returns a NotFound error on id and revision mismatch.
 func (s *Store[T]) Update(ctx context.Context, id string, updates any, opts UpdateOptions) (*UpdateResult, error) {
+	hookCtx := NewHookContext(ctx, s)
+	for _, h := range s.hooks {
+		if h.OnUpdate != nil {
+			h.OnUpdate(hookCtx, id, updates, &opts)
+		}
+	}
 	rc, err := s.update(ctx, updates, sq.Eq{ColId: id}, true, opts.Metadata, opts.Revision)
 	if err != nil {
 		return nil, err
@@ -80,6 +101,12 @@ func (s *Store[T]) Update(ctx context.Context, id string, updates any, opts Upda
 
 // UpdateMany updates all the documents that match the given query.
 func (s *Store[T]) UpdateMany(ctx context.Context, updates any, q Sqlizer, opts UpdateManyOptions) (*UpdateManyResult, error) {
+	hookCtx := NewHookContext(ctx, s)
+	for _, h := range s.hooks {
+		if h.OnUpdateMany != nil {
+			h.OnUpdateMany(hookCtx, updates, q, &opts)
+		}
+	}
 	rc, err := s.update(ctx, updates, q, true, opts.Metadata, -1)
 	if err != nil {
 		return nil, err

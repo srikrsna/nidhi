@@ -41,6 +41,8 @@ type (
 type StoreOptions struct {
 	// MetadataRegistry is the registry of metadata parts.
 	MetadataRegistry map[string]func() MetadataPart
+	// Hooks for the store operations.
+	Hooks []Hooks
 }
 
 // Store is the collection of documents
@@ -53,7 +55,8 @@ type Store[T any] struct {
 	idFn    IdFn[T]
 	setIdFn SetIdFn[T]
 
-	mdr map[string]func() MetadataPart
+	mdr   map[string]func() MetadataPart
+	hooks []Hooks
 }
 
 // NewStore returns a new store.
@@ -82,5 +85,6 @@ func NewStore[T any](
 		idFn:    idFn,
 		setIdFn: setIdFn,
 		mdr:     opts.MetadataRegistry,
+		hooks:   opts.Hooks,
 	}, nil
 }

@@ -5,6 +5,9 @@ import (
 	"fmt"
 )
 
+// OnCreateHook is the signature of [Hooks.OnCreate] hook.
+type OnCreateHook func(*HookContext, any, *CreateOptions)
+
 // CreateOptions are options for the `Create` operation.
 type CreateOptions struct {
 	CreateMetadata Metadata
@@ -28,6 +31,12 @@ type CreateResult struct{}
 //
 // See `CreateOptions` for replacing documents if already present.
 func (s *Store[T]) Create(ctx context.Context, doc *T, opts CreateOptions) (*CreateResult, error) {
+	hookCtx := NewHookContext(ctx, s)
+	for _, hook := range s.hooks {
+		if hook.OnCreate != nil {
+			hook.OnCreate(hookCtx, doc, &opts)
+		}
+	}
 	id := s.idFn(doc)
 	if id == "" {
 		return nil, fmt.Errorf("nidhi: id cannot be empty")

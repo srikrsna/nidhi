@@ -10,6 +10,12 @@ import (
 	"golang.org/x/exp/maps"
 )
 
+// OnGetHook is the signature of [Hooks.OnGet] hook.
+type OnGetHook func(*HookContext, string, *GetOptions)
+
+// OnQueryHook is the signature of [Hooks.OnQuery] hook.
+type OnQueryHook func(*HookContext, Sqlizer, *QueryOptions)
+
 // Document is wrapper for a resource.
 type Document[T any] struct {
 	// Value is the resource.
@@ -91,6 +97,12 @@ type QueryResult[T any] struct {
 
 // Get is used to get a document from the store.
 func (s *Store[T]) Get(ctx context.Context, id string, opts GetOptions) (*GetResult[T], error) {
+	hookCtx := NewHookContext(ctx, s)
+	for _, h := range s.hooks {
+		if h.OnGet != nil {
+			h.OnGet(hookCtx, id, &opts)
+		}
+	}
 	var selection any = ColDoc
 	if len(s.fields) > 0 && len(opts.ViewMask) > 0 {
 		selection = sq.Expr(ColDoc+" - ?::text[]", pg.Array(difference(s.fields, opts.ViewMask)))
@@ -130,6 +142,12 @@ func (s *Store[T]) Get(ctx context.Context, id string, opts GetOptions) (*GetRes
 
 // Query queries the store and returns all matching documents.
 func (s *Store[T]) Query(ctx context.Context, q Sqlizer, opts QueryOptions) (*QueryResult[T], error) {
+	hookCtx := NewHookContext(ctx, s)
+	for _, h := range s.hooks {
+		if h.OnQuery != nil {
+			h.OnQuery(hookCtx, q, &opts)
+		}
+	}
 	selection := any(ColDoc)
 	if len(s.fields) > 0 && len(opts.ViewMask) > 0 {
 		selection = sq.Expr(ColDoc+" - ?::text[]", pg.Array(difference(s.fields, opts.ViewMask)))

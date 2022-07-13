@@ -7,6 +7,12 @@ import (
 	sq "github.com/elgris/sqrl"
 )
 
+// OnDeleteHook is the function signature for the [Hooks.OnDelete] hook.
+type OnDeleteHook func(*HookContext, string, *DeleteOptions)
+
+// OnDeleteManyHook is the function signature for the [Hooks.OnDeleteMany] hook.
+type OnDeleteManyHook func(*HookContext, Sqlizer, *DeleteManyOptions)
+
 // DeleteOptions are options for the `Delete` operation
 type DeleteOptions struct {
 	// Metadata is the metadata of the document.
@@ -45,6 +51,12 @@ type DeleteManyResult struct {
 //
 // By default all deletes are soft deletes. To hard delete, see `DeleteOptions`
 func (s *Store[T]) Delete(ctx context.Context, id string, opts DeleteOptions) (*DeleteResult, error) {
+	hookCtx := NewHookContext(ctx, s)
+	for _, h := range s.hooks {
+		if h.OnDelete != nil {
+			h.OnDelete(hookCtx, id, &opts)
+		}
+	}
 	var (
 		sqlStr string
 		args   []any
@@ -79,6 +91,12 @@ func (s *Store[T]) Delete(ctx context.Context, id string, opts DeleteOptions) (*
 }
 
 func (s *Store[T]) DeleteMany(ctx context.Context, q Sqlizer, opts DeleteManyOptions) (*DeleteManyResult, error) {
+	hookCtx := NewHookContext(ctx, s)
+	for _, h := range s.hooks {
+		if h.OnDeleteMany != nil {
+			h.OnDeleteMany(hookCtx, q, &opts)
+		}
+	}
 	var (
 		sqlStr string
 		args   []any
