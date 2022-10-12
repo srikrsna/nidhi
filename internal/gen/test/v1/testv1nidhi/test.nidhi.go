@@ -153,14 +153,18 @@ type testId struct {
 	baseTestField
 }
 
-func (testId) Selector() string                              { return `JSON_VALUE('$.id' RETURNING TEXT DEFAULT '' ON EMPTY)` }
+func (testId) Selector() string {
+	return `JSON_VALUE(` + nidhi.ColDoc + `::jsonb, '$.id' RETURNING TEXT DEFAULT '' ON EMPTY)`
+}
 func (f testId) Is(c *nidhi.StringCond) (testId, nidhi.Cond) { return f, c }
 
 type testTitle struct {
 	baseTestField
 }
 
-func (testTitle) Selector() string                                 { return `JSON_VALUE('$.title' RETURNING TEXT DEFAULT '' ON EMPTY)` }
+func (testTitle) Selector() string {
+	return `JSON_VALUE(` + nidhi.ColDoc + `::jsonb, '$.title' RETURNING TEXT DEFAULT '' ON EMPTY)`
+}
 func (f testTitle) Is(c *nidhi.StringCond) (testTitle, nidhi.Cond) { return f, c }
 
 type testSubTest struct {
@@ -170,7 +174,7 @@ type testSubTest struct {
 }
 
 func (testSubTest) Selector() string {
-	return `JSON_VALUE('$.subTest' RETURNING JSONB DEFAULT '{}' ON EMPTY)`
+	return `JSON_VALUE(` + nidhi.ColDoc + `::jsonb, '$.subTest' RETURNING JSONB DEFAULT '{}' ON EMPTY)`
 }
 func (f testSubTest) Is(c *nidhi.JsonCond) (testSubTest, nidhi.Cond) { return f, c }
 
@@ -179,7 +183,7 @@ type testSubTestName struct {
 }
 
 func (testSubTestName) Selector() string {
-	return `JSON_VALUE('$.subTest.name' RETURNING TEXT DEFAULT '' ON EMPTY)`
+	return `JSON_VALUE(` + nidhi.ColDoc + `::jsonb, '$.subTest.name' RETURNING TEXT DEFAULT '' ON EMPTY)`
 }
 func (f testSubTestName) Is(c *nidhi.StringCond) (testSubTestName, nidhi.Cond) { return f, c }
 
@@ -189,7 +193,7 @@ type testSubTestInner struct {
 }
 
 func (testSubTestInner) Selector() string {
-	return `JSON_VALUE('$.subTest.inner' RETURNING JSONB DEFAULT '{}' ON EMPTY)`
+	return `JSON_VALUE(` + nidhi.ColDoc + `::jsonb, '$.subTest.inner' RETURNING JSONB DEFAULT '{}' ON EMPTY)`
 }
 func (f testSubTestInner) Is(c *nidhi.JsonCond) (testSubTestInner, nidhi.Cond) { return f, c }
 
@@ -198,7 +202,7 @@ type testSubTestInnerYes struct {
 }
 
 func (testSubTestInnerYes) Selector() string {
-	return `JSON_VALUE('$.subTest.inner.yes' RETURNING TEXT DEFAULT '' ON EMPTY)`
+	return `JSON_VALUE(` + nidhi.ColDoc + `::jsonb, '$.subTest.inner.yes' RETURNING TEXT DEFAULT '' ON EMPTY)`
 }
 func (f testSubTestInnerYes) Is(c *nidhi.StringCond) (testSubTestInnerYes, nidhi.Cond) { return f, c }
 
@@ -209,7 +213,7 @@ type testSubTests struct {
 }
 
 func (testSubTests) Selector() string {
-	return `JSON_VALUE('$.subTests' RETURNING JSONB DEFAULT '{}' ON EMPTY)`
+	return `JSON_VALUE(` + nidhi.ColDoc + `::jsonb, '$.subTests' RETURNING JSONB DEFAULT '{}' ON EMPTY)`
 }
 func (f testSubTests) Is(c *nidhi.JsonCond) (testSubTests, nidhi.Cond) { return f, c }
 
@@ -218,7 +222,7 @@ type testSubTestsName struct {
 }
 
 func (testSubTestsName) Selector() string {
-	return `JSON_VALUE('$.subTests[*].name' RETURNING TEXT[] DEFAULT '{}' ON EMPTY)`
+	return `JSON_VALUE(` + nidhi.ColDoc + `::jsonb, '$.subTests[*].name' RETURNING TEXT[] DEFAULT '{}' ON EMPTY)`
 }
 func (f testSubTestsName) Is(c *nidhi.StringSliceCond) (testSubTestsName, nidhi.Cond) { return f, c }
 
@@ -228,7 +232,7 @@ type testSubTestsInner struct {
 }
 
 func (testSubTestsInner) Selector() string {
-	return `JSON_VALUE('$.subTests[*].inner' RETURNING JSONB DEFAULT '{}' ON EMPTY)`
+	return `JSON_VALUE(` + nidhi.ColDoc + `::jsonb, '$.subTests[*].inner' RETURNING JSONB DEFAULT '{}' ON EMPTY)`
 }
 func (f testSubTestsInner) Is(c *nidhi.JsonCond) (testSubTestsInner, nidhi.Cond) { return f, c }
 
@@ -237,7 +241,7 @@ type testSubTestsInnerYes struct {
 }
 
 func (testSubTestsInnerYes) Selector() string {
-	return `JSON_VALUE('$.subTests[*].inner.yes' RETURNING TEXT[] DEFAULT '{}' ON EMPTY)`
+	return `JSON_VALUE(` + nidhi.ColDoc + `::jsonb, '$.subTests[*].inner.yes' RETURNING TEXT[] DEFAULT '{}' ON EMPTY)`
 }
 func (f testSubTestsInnerYes) Is(c *nidhi.StringSliceCond) (testSubTestsInnerYes, nidhi.Cond) {
 	return f, c
@@ -249,14 +253,18 @@ type testM struct {
 	Value testMValue
 }
 
-func (testM) Selector() string                           { return `JSON_VALUE('$.m' RETURNING JSONB DEFAULT '{}' ON EMPTY)` }
+func (testM) Selector() string {
+	return `JSON_VALUE(` + nidhi.ColDoc + `::jsonb, '$.m' RETURNING JSONB DEFAULT '{}' ON EMPTY)`
+}
 func (f testM) Is(c *nidhi.JsonCond) (testM, nidhi.Cond) { return f, c }
 
 type testMKey struct {
 	baseTestField
 }
 
-func (testMKey) Selector() string                                { return `JSON_VALUE('$.m.key' RETURNING TEXT DEFAULT '' ON EMPTY)` }
+func (testMKey) Selector() string {
+	return `JSON_VALUE(` + nidhi.ColDoc + `::jsonb, '$.m.key' RETURNING TEXT DEFAULT '' ON EMPTY)`
+}
 func (f testMKey) Is(c *nidhi.StringCond) (testMKey, nidhi.Cond) { return f, c }
 
 type testMValue struct {
@@ -264,6 +272,6 @@ type testMValue struct {
 }
 
 func (testMValue) Selector() string {
-	return `JSON_VALUE('$.m.value' RETURNING TEXT DEFAULT '' ON EMPTY)`
+	return `JSON_VALUE(` + nidhi.ColDoc + `::jsonb, '$.m.value' RETURNING TEXT DEFAULT '' ON EMPTY)`
 }
 func (f testMValue) Is(c *nidhi.StringCond) (testMValue, nidhi.Cond) { return f, c }

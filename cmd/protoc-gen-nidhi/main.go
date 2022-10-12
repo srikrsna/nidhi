@@ -311,7 +311,7 @@ func genSelectors(g *protogen.GeneratedFile, m *protogen.Message, fieldEmbed, ty
 
 func genSelectorFunc(g *protogen.GeneratedFile, field *protogen.Field, fieldType, prefix string, inSlice uint) {
 	dataType, cond, defaultValue := getDbTypeCondAndDefault(field, inSlice)
-	g.P("func (", fieldType, ") Selector() string { return `JSON_VALUE('", prefix+"."+field.Desc.JSONName(), "' RETURNING ", dataType, " DEFAULT ", defaultValue, " ON EMPTY)` }")
+	g.P("func (", fieldType, ") Selector() string { return `JSON_VALUE(`+", nidhiPkg.Ident("ColDoc"), "+`::jsonb, '", prefix+"."+field.Desc.JSONName(), "' RETURNING ", dataType, " DEFAULT ", defaultValue, " ON EMPTY)` }")
 	g.P("func (f ", fieldType, ") Is(c *", nidhiPkg.Ident(cond), ") (", fieldType, ", ", nidhiPkg.Ident("Cond"), ") { return f, c }")
 }
 
