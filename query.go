@@ -34,6 +34,14 @@ func (q *Query[F]) Reset() {
 }
 
 func (q *Query[F]) Where(f F, c Cond) *Conj[F] {
+	return q.where(f, c)
+}
+
+func (q *Query[F]) WhereMetadata(f *MetadataField, c Cond) *Conj[F] {
+	return q.where(f, c)
+}
+
+func (q *Query[F]) where(f Field, c Cond) *Conj[F] {
 	if err := c.AppendCond(f.Selector(), &q.buf, &q.args); err != nil {
 		q.err = err
 	}

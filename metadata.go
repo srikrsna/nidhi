@@ -8,8 +8,8 @@ import (
 //
 // Metadata is designed to be extendible. These should typically be document agnostic information.
 // Eg:
-// 	- Activity log (create, update timestamps)
-//  - Common information extracted from the document
+//   - Activity log (create, update timestamps)
+//   - Common information extracted from the document
 type Metadata map[string]MetadataPart
 
 type MetadataPart interface {
@@ -17,6 +17,19 @@ type MetadataPart interface {
 	MarshalMDP(w *jsoniter.Stream)
 	// UnmarshalMD unmarshals the metdata.
 	UnmarshalMDP(r *jsoniter.Iterator)
+}
+
+// MetadataField is a [Field] for metadata parts
+//
+// Metadata parts can return a MetadataField
+type MetadataField struct {
+	Part    string
+	Type    string
+	Default string
+}
+
+func (f *MetadataField) Selector() string {
+	return `JSON_VALUE(` + ColMeta + `::jsonb, '$.` + f.Part + `' RETURNING ` + f.Type + ` DEFAULT ` + f.Default + ` ON EMPTY)`
 }
 
 func (m Metadata) writeJSON(w *jsoniter.Stream) {
