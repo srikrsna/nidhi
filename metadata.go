@@ -51,6 +51,8 @@ func (m Metadata) readJSON(r *jsoniter.Iterator) {
 		part, ok := m[field]
 		if ok {
 			part.UnmarshalMDP(r)
+		} else {
+			r.Skip()
 		}
 	}
 }
