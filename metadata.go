@@ -19,17 +19,11 @@ type MetadataPart interface {
 	UnmarshalMDP(r *jsoniter.Iterator)
 }
 
-// MetadataField is a [Field] for metadata parts
+// GetMetadataField returns the field accessor query for the given field.
 //
-// Metadata parts can return a MetadataField
-type MetadataField struct {
-	Part    string
-	Type    string
-	Default string
-}
-
-func (f *MetadataField) Selector() string {
-	return `JSON_VALUE(` + ColMeta + `::jsonb, '$.` + f.Part + `' RETURNING ` + f.Type + ` DEFAULT ` + f.Default + ` ON EMPTY)`
+// It is intented to be used by metadata packages.
+func GetMetadataField(part string, typ string, def string) string {
+	return `JSON_VALUE(` + ColMeta + `::jsonb, '$.` + part + `' RETURNING ` + typ + ` DEFAULT ` + def + ` ON EMPTY)`
 }
 
 func (m Metadata) writeJSON(w *jsoniter.Stream) {
