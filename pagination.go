@@ -145,7 +145,7 @@ func (OrderByInt) Decode(cursor string) (any, string, error) {
 
 	return v, splits[1], nil
 }
-func (OrderByInt) New() any { return Ptr[int64](0) }
+func (OrderByInt) New() any { return ptr[int64](0) }
 
 type OrderByFloat string
 
@@ -175,7 +175,7 @@ func (OrderByFloat) Decode(cursor string) (any, string, error) {
 
 	return v, splits[1], nil
 }
-func (OrderByFloat) New() any { return Ptr[float64](0) }
+func (OrderByFloat) New() any { return ptr[float64](0) }
 
 type OrderByString string
 
@@ -205,7 +205,7 @@ func (OrderByString) Decode(cursor string) (any, string, error) {
 
 	return string(v), splits[1], nil
 }
-func (OrderByString) New() any { return Ptr("") }
+func (OrderByString) New() any { return ptr("") }
 
 type OrderByTime string
 
@@ -240,4 +240,8 @@ func (OrderByTime) Decode(cursor string) (any, string, error) {
 
 	return tv, splits[1], nil
 }
-func (OrderByTime) New() any { return Ptr(time.Time{}) }
+func (OrderByTime) New() any { return ptr(time.Time{}) }
+
+func ptr[T any](v T) *T {
+	return &v
+}

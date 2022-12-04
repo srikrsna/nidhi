@@ -66,7 +66,7 @@ func TestUpdate(t *testing.T) {
 		r.Id = "update-id"
 		storeDoc(t, db, r, nil)
 		updates := &resourceUpdates{
-			Title: nidhi.Ptr(""),
+			Title: ptr(""),
 		}
 		r.Title = ""
 		md := nidhi.Metadata{"part": &metadataPart{Value: "value"}}
@@ -89,7 +89,7 @@ func TestUpdate(t *testing.T) {
 		t.Run("revision-match", func(t *testing.T) {
 			t.Parallel()
 			updates := &resourceUpdates{
-				Title: nidhi.Ptr("Updated"),
+				Title: ptr("Updated"),
 			}
 			r.Title = "Updated"
 			res, err := store.Update(context.Background(), r.Id, updates, nidhi.UpdateOptions{Revision: 2})
@@ -122,7 +122,7 @@ func TestUpdateMany(t *testing.T) {
 			rr = append(rr, r)
 		}
 		updates := &resourceUpdates{
-			Title: nidhi.Ptr(""),
+			Title: ptr(""),
 		}
 		md := nidhi.Metadata{"part": &metadataPart{Value: "value"}}
 		res, err := store.UpdateMany(context.Background(), updates, filterByAge(age), nidhi.UpdateManyOptions{Metadata: md})

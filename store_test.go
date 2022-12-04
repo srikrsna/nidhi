@@ -258,3 +258,7 @@ func defaultResource() *resource {
 		CanDrive:    true,
 	}
 }
+
+func ptr[T any](v T) *T {
+	return &v
+}
