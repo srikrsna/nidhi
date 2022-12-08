@@ -1,6 +1,8 @@
 package nidhi
 
 import (
+	"strings"
+
 	jsoniter "github.com/json-iterator/go"
 )
 
@@ -23,7 +25,12 @@ type MetadataPart interface {
 //
 // It is intented to be used by metadata packages.
 func GetMetadataField(part string, typ string, def string) string {
-	return `JSON_VALUE(` + ColMeta + `::jsonb, '$.` + part + `' RETURNING ` + typ + ` DEFAULT ` + def + ` ON EMPTY)`
+	op := `->`
+	if strings.ToUpper(typ) == "TEXT" {
+		op = `->>`
+	}
+	// Eg: metadata->'activity'::jsonb
+	return `(` + ColMeta + op + `'` + part + `')::` + typ
 }
 
 func (m Metadata) writeJSON(w *jsoniter.Stream) {

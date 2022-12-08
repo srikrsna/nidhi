@@ -8,11 +8,12 @@ import (
 	context "context"
 	sql "database/sql"
 	json "encoding/json"
+	"strconv"
+
 	_go "github.com/json-iterator/go"
 	nidhi "github.com/srikrsna/nidhi"
 	v1 "github.com/srikrsna/nidhi/internal/gen/test/v1"
 	protojson "google.golang.org/protobuf/encoding/protojson"
-	strconv "strconv"
 )
 
 // Store is a [nidhi.Store] for Test.
@@ -54,17 +55,13 @@ type Updates struct {
 }
 
 var schema = newTestField(nil)
+
 var (
-	Id       = schema.Id
-	Title    = schema.Title
-	SubTest  = schema.SubTest
+	Id = schema.Id
+	Title = schema.Title
+	SubTest = schema.SubTest
 	SubTests = schema.SubTests
-	M        = schema.M
-)
-var (
-	Or  = nidhi.Or
-	And = nidhi.And
-	Not = nidhi.Not
+	M = schema.M
 )
 
 type testField struct {
@@ -82,20 +79,10 @@ func newTestField(path []string) testField {
 		nidhi.NewStringField(append(path, "id")),
 		nidhi.NewStringField(append(path, "title")),
 		newSubTestField(append(path, "subTest")),
-		nidhi.NewListField[*v1.SubTest, []*v1.SubTest, subTestField](append(path, "subTests"), func(i int) subTestField { return newSubTestField(append(path, "subTests", strconv.Itoa(i))) }),
+		nidhi.NewListField[*v1.SubTest, []*v1.SubTest](append(path, "subTests"), func(i int) subTestField {
+			return newSubTestField(append(path, "subTests", strconv.Itoa(i)))
+		}),
 		nidhi.NewDocField[map[string]string](append(path, "m")),
-	}
-}
-
-type subTest_InnerTestField struct {
-	nidhi.DocField[*v1.SubTest_InnerTest]
-	Yes nidhi.StringField
-}
-
-func newSubTest_InnerTestField(path []string) subTest_InnerTestField {
-	return subTest_InnerTestField{
-		nidhi.NewDocField[*v1.SubTest_InnerTest](path),
-		nidhi.NewStringField(append(path, "yes")),
 	}
 }
 
@@ -110,6 +97,18 @@ func newSubTestField(path []string) subTestField {
 		nidhi.NewDocField[*v1.SubTest](path),
 		nidhi.NewStringField(append(path, "name")),
 		newSubTest_InnerTestField(append(path, "inner")),
+	}
+}
+
+type subTest_InnerTestField struct {
+	nidhi.DocField[*v1.SubTest_InnerTest]
+	Yes nidhi.StringField
+}
+
+func newSubTest_InnerTestField(path []string) subTest_InnerTestField {
+	return subTest_InnerTestField{
+		nidhi.NewDocField[*v1.SubTest_InnerTest](path),
+		nidhi.NewStringField(append(path, "yes")),
 	}
 }
 

@@ -9,7 +9,7 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-type bufferer interface {
+type buffered interface {
 	Buffer() []byte
 }
 
@@ -17,7 +17,7 @@ type buffer []byte
 
 func (b buffer) Buffer() []byte { return b }
 
-func getJson(v any) (bufferer, error) {
+func getJson(v any) (buffered, error) {
 	switch v := v.(type) {
 	case Metadata:
 		w := jsoniter.ConfigDefault.BorrowStream(nil)
@@ -42,7 +42,7 @@ func getJson(v any) (bufferer, error) {
 	}
 }
 
-func putJson(v bufferer) {
+func putJson(v buffered) {
 	switch v := v.(type) {
 	case *jsoniter.Stream:
 		jsoniter.ConfigDefault.ReturnStream(v)

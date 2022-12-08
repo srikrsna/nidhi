@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/srikrsna/nidhi/gen/nidhi"
+	"golang.org/x/exp/maps"
 	"google.golang.org/protobuf/compiler/protogen"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
@@ -25,6 +26,7 @@ const (
 	generatedFilenameExtension = ".nidhi.go"
 	generatedPackageDir        = "nidhi"
 	nidhiPkg                   = protogen.GoImportPath("github.com/srikrsna/nidhi")
+	strconvPkh                 = protogen.GoImportPath("strconv")
 	contextPkg                 = protogen.GoImportPath("context")
 	sqlPkg                     = protogen.GoImportPath("database/sql")
 	jsoniterPkg                = protogen.GoImportPath("github.com/json-iterator/go")
@@ -118,7 +120,7 @@ func genMessage(g *protogen.GeneratedFile, message *protogen.Message, idField *p
 	genUpdatesType(g, message, idField, plugin)
 	genSchema(g, message)
 	genConj(g)
-	genSchemaTypes(g, message)
+	genSchemaTypes(g, message, plugin)
 	genUpdateMarshaler(g, message, idField, plugin)
 }
 
@@ -240,45 +242,139 @@ func genConj(g *protogen.GeneratedFile) {
 }
 
 func genSchema(g *protogen.GeneratedFile, message *protogen.Message) {
+	g.P("var schema = new", message.GoIdent.GoName, "Field(nil)")
 	g.P("var (")
 	for _, field := range message.Fields {
-		g.P(field.GoName, " = ", lcc(message.GoIdent.GoName), field.GoName, "{")
-		genSchemaField(g, field, lcc(message.GoIdent.GoName), "$", 0)
-		g.P("}")
+		g.P(field.GoName, " = schema.", field.GoName)
 	}
 	g.P(")")
-	g.P("")
 }
 
-func genSchemaField(g *protogen.GeneratedFile, field *protogen.Field, typeName, prefix string, inSlice uint) {
-	genSelector(g, field, prefix, inSlice)
-	if field.Message != nil {
-		var (
-			sliceExt   string
-			sliceCount uint
+func genSchemaTypes(g *protogen.GeneratedFile, m *protogen.Message, p *protogen.Plugin) {
+	msgs := getUniqueMessages(m)
+	for _, msg := range msgs {
+		genFieldType(g, msg, p)
+		g.P("")
+	}
+}
+
+func genFieldType(g *protogen.GeneratedFile, m *protogen.Message, p *protogen.Plugin) {
+	g.P("type ", lcc(m.GoIdent.GoName), "Field struct {")
+	g.P(nidhiPkg.Ident("DocField"), "[*", m.GoIdent, "]")
+	for _, f := range m.Fields {
+		g.P(append([]any{f.GoName, " "}, getFieldTyp(f, p)...)...)
+	}
+	g.P("}")
+	g.P("")
+	g.P("func new", m.GoIdent.GoName, "Field(path []string) ", lcc(m.GoIdent.GoName), "Field", " {")
+	g.P("return ", lcc(m.GoIdent.GoName), "Field{")
+	g.P(nidhiPkg.Ident("NewDocField"), "[*", m.GoIdent, "](path),")
+	for _, f := range m.Fields {
+		g.P(append(getFieldTypCtr(f, p), ",")...)
+	}
+	g.P("}")
+	g.P("}")
+}
+
+func getFieldTyp(f *protogen.Field, p *protogen.Plugin) []any {
+	if f.Desc.IsMap() {
+		return append(
+			[]any{nidhiPkg.Ident("DocField"), "[", "map[", lkpScalarFieldTyp(f.Desc.MapKey().Kind()), "]"},
+			append(lkpMapValueImport(f.Desc.MapValue(), p), "]")...,
 		)
-		if field.Desc.IsList() {
-			sliceExt = "[*]"
-			sliceCount = 1
+	}
+	if f.Desc.IsList() {
+		if f.Message != nil { // Message list
+			return []any{
+				nidhiPkg.Ident("ListField"),
+				"[*", f.Message.GoIdent, ", []*", f.Message.GoIdent, ", ", lcc(f.Message.GoIdent.GoName), "Field]",
+			}
 		}
-		for _, subField := range field.Message.Fields {
-			g.P(typeName+field.GoName+subField.GoName, "{")
-			genSchemaField(g, subField, typeName+field.GoName, prefix+"."+field.Desc.JSONName()+sliceExt, inSlice+sliceCount)
-			g.P("},")
+		typ := lkpScalarFieldTyp(f.Desc.Kind())
+		return []any{
+			nidhiPkg.Ident("ListField"),
+			"[", typ, ", []", typ, ", ", nidhiPkg.Ident(getScalarFieldTyp(f.Desc.Kind())), "]",
 		}
+	}
+	if f.Message != nil {
+		return []any{lcc(f.Message.GoIdent.GoName), "Field"}
+	}
+	return []any{nidhiPkg.Ident(getScalarFieldTyp(f.Desc.Kind()))}
+}
+
+func getFieldTypCtr(f *protogen.Field, p *protogen.Plugin) []any {
+	if f.Desc.IsMap() {
+		idents := getFieldTyp(f, p)
+		fd := idents[0].(protogen.GoIdent)
+		fd.GoName = "New" + fd.GoName
+		idents[0] = fd
+		return append(
+			idents,
+			`(append(path, "`, f.Desc.JSONName(), `"))`,
+		)
+
+	}
+	if f.Desc.IsList() {
+		if f.Message != nil { // Message list
+			return []any{
+				nidhiPkg.Ident("NewListField"),
+				"[*", f.Message.GoIdent, ", []*", f.Message.GoIdent, ", ", lcc(f.Message.GoIdent.GoName), "Field]",
+				`(append(path, "`, f.Desc.JSONName(), `"), func (i int)`, lcc(f.Message.GoIdent.GoName), "Field {",
+				`return new`, f.Message.GoIdent.GoName, "Field", `(append(path, "`, f.Desc.JSONName(), `", `, strconvPkh.Ident("Itoa"), `(i)))`,
+				"})",
+			}
+		}
+		typ := lkpScalarFieldTyp(f.Desc.Kind())
+		return []any{
+			nidhiPkg.Ident("NewListField"),
+			"[", typ, ", []", typ, ",", nidhiPkg.Ident(getScalarFieldTyp(f.Desc.Kind())), "](",
+			"append(path, \"", f.Desc.JSONName(), "\"), func (i int) ", nidhiPkg.Ident(getScalarFieldTyp(f.Desc.Kind())), "{",
+			"return ", nidhiPkg.Ident("New" + getScalarFieldTyp(f.Desc.Kind())), "(append(path, \"", f.Desc.JSONName(), "\", ", strconvPkh.Ident("Itoa"), "(i)))",
+			"})",
+		}
+	}
+	if f.Message != nil {
+		return []any{"new", f.Message.GoIdent.GoName, "Field(append(path, \"", f.Desc.JSONName(), "\"))"}
+	}
+	return []any{nidhiPkg.Ident("New" + getScalarFieldTyp(f.Desc.Kind())), "(append(path, \"", f.Desc.JSONName(), "\"))"}
+}
+
+func getScalarFieldTyp(kind protoreflect.Kind) string {
+	switch kind {
+	case protoreflect.StringKind, protoreflect.BytesKind, protoreflect.EnumKind:
+		return "StringField"
+	case protoreflect.BoolKind:
+		return "BoolField"
+	case protoreflect.DoubleKind, protoreflect.FloatKind:
+		return "FloatField"
+	case protoreflect.Int32Kind,
+		protoreflect.Sint32Kind,
+		protoreflect.Sfixed32Kind,
+		protoreflect.Uint32Kind,
+		protoreflect.Fixed32Kind,
+		protoreflect.Int64Kind,
+		protoreflect.Sint64Kind,
+		protoreflect.Sfixed64Kind,
+		protoreflect.Uint64Kind,
+		protoreflect.Fixed64Kind:
+		return "IntField"
+	default:
+		panic("this is a bug")
 	}
 }
 
-func genSelector(g *protogen.GeneratedFile, field *protogen.Field, prefix string, inSlice uint) {
-	dataType, fieldType, defaultValue := getFieldInfo(field, inSlice)
-	g.P(nidhiPkg.Ident(fieldType), "(`JSON_VALUE(`+", nidhiPkg.Ident("ColDoc"), "+`::jsonb, '", prefix+"."+field.Desc.JSONName(), "' RETURNING ", dataType, " DEFAULT ", defaultValue, " ON EMPTY)`),")
-}
-
-func genSchemaTypes(g *protogen.GeneratedFile, m *protogen.Message) {
-	g.P("type (")
-	genSchemaType(g, m, lcc(m.GoIdent.GoName), 0)
-	g.P(")")
-	g.P("")
+func getUniqueMessages(m *protogen.Message) []*protogen.Message {
+	msgs := map[string]*protogen.Message{
+		string(m.Desc.FullName()): m,
+	}
+	for _, f := range m.Fields {
+		if f.Message != nil && !f.Desc.IsMap() {
+			for _, m := range getUniqueMessages(f.Message) {
+				msgs[string(m.Desc.FullName())] = m
+			}
+		}
+	}
+	return maps.Values(msgs)
 }
 
 func genSchemaType(g *protogen.GeneratedFile, msg *protogen.Message, prefix string, inSlice uint) {
@@ -307,15 +403,15 @@ func genSelectorType(g *protogen.GeneratedFile, field *protogen.Field, prefix st
 }
 
 func genNewStore(g *protogen.GeneratedFile, m *protogen.Message, id *protogen.Field) {
-	g.P("// ", m.GoIdent.GoName, "Store is a [nidhi.Store] for ", m.GoIdent.GoName, ".")
-	g.P("type ", m.GoIdent.GoName, "Store = ", nidhiPkg.Ident("Store"), "[", m.GoIdent, "]")
+	g.P("// Store is a [nidhi.Store] for ", m.GoIdent.GoName, ".")
+	g.P("type Store = ", nidhiPkg.Ident("Store"), "[", m.GoIdent, "]")
 	g.P()
-	g.P("// New", m.GoIdent.GoName, "Store is a document store for ", m.GoIdent.GoName)
-	g.P("func New", m.GoIdent.GoName, "Store(")
+	g.P("// NewStore is a document store for ", m.GoIdent.GoName)
+	g.P("func NewStore(")
 	g.P("ctx ", contextPkg.Ident("Context"), ",")
 	g.P("db *", sqlPkg.Ident("DB"), ",")
 	g.P("opt ", nidhiPkg.Ident("StoreOptions"), ",")
-	g.P(") (*", m.GoIdent.GoName, "Store, error) {")
+	g.P(") (*Store, error) {")
 	g.P("return ", nidhiPkg.Ident("NewStore"), "(")
 	g.P("ctx,")
 	g.P("db,")
@@ -454,7 +550,7 @@ func lkpFieldType(field *protogen.Field, plugin *protogen.Plugin) (fn []any) {
 
 func lkpScalarFieldTyp(kind protoreflect.Kind) string {
 	switch kind {
-	case protoreflect.StringKind:
+	case protoreflect.StringKind, protoreflect.EnumKind:
 		return "string"
 	case protoreflect.BytesKind:
 		return "[]byte"
